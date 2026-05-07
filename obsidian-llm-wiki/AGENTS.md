@@ -2,7 +2,7 @@
 
 LLM Wiki pattern for an active Obsidian vault. Compiles knowledge from meetings,
 projects, daily notes, and raw sources into a persistent, cross-referenced wiki at
-`Knowledge/wiki/`. Supports both Claude Code (slash commands) and GitHub Copilot
+`wiki/`. Supports both Claude Code (slash commands) and GitHub Copilot
 (natural language prefixes). Wiki sessions from both agents accumulate into the same
 wiki — switching between them mid-project is seamless.
 
@@ -18,18 +18,14 @@ with `skills/` (which are relative to this plugin's installation directory).
 
 ---
 
-## CRITICAL — Hot Cache Rule (Copilot has no hooks)
+## Hot Cache — Automatic via Hooks
 
-**SESSION START — any wiki operation**: read `Knowledge/wiki/hot.md` first if it exists.
-Silently absorb the context — do not announce it, do not summarise it back to the user.
+`wiki/hot.md` is managed automatically by plugin hooks:
+- **SessionStart / PostCompact** — hot.md is read silently and injected as context
+- **Stop** — the agent is prompted to update hot.md before ending the session
 
-**SESSION END — after any wiki work**: always run `wiki-hot:` before finishing the session.
-This persists the session context so the next session starts warm. Copilot has no Stop
-hook; if this step is skipped, the next session starts cold with no recent context.
-
-Claude Code handles both automatically via SessionStart and Stop hooks.
-Copilot relies entirely on this standing instruction and the user explicitly running
-`wiki-hot:` at the end.
+No manual steps needed. Both Copilot and Claude Code handle this identically via hooks.
+To force a hot cache refresh mid-session, run `wiki-hot:`.
 
 ---
 
@@ -66,8 +62,7 @@ plugin installation directory.
 ## Command Equivalence
 
 Every natural language prefix has an identical Claude Code slash command. Both produce
-the same output and operate on the same wiki files. There is no behavioural difference
-except that Claude Code also auto-updates hot.md at session start/end via hooks.
+the same output and operate on the same wiki files. There is no behavioural difference between the two agents.
 
 | Copilot prefix | Claude Code slash command |
 |----------------|--------------------------|

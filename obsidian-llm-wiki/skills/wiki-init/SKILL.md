@@ -2,7 +2,7 @@
 name: wiki-init
 description: >
   Initialize or re-initialize vault integration for the LLM wiki pattern. Creates .raw/
-  inbox, bootstraps Knowledge/wiki/ with skeleton files (_index.md, _log.md,
+  inbox, bootstraps wiki/ with skeleton files (_index.md, _log.md,
   _manifest.json, hot.md), syncs wiki-schema to .obsidian/copilot/, and merges wiki
   blocks into CLAUDE.md and .github/copilot-instructions.md. Safe to re-run after plugin
   updates — existing wiki pages are never touched, skeleton files are never overwritten.
@@ -37,16 +37,16 @@ touch "${VAULT}/.raw/.gitkeep"
 
 ---
 
-## Step 3 — Bootstrap Knowledge/wiki/ skeleton files
+## Step 3 — Bootstrap wiki/ skeleton files
 
 Create the wiki directory and all four skeleton files. Skip any file that already exists —
 never overwrite existing data.
 
 ```bash
-mkdir -p "${VAULT}/Knowledge/wiki"
+mkdir -p "${VAULT}/wiki"
 ```
 
-**`Knowledge/wiki/_index.md`** — create only if absent:
+**`wiki/_index.md`** — create only if absent:
 
 ```markdown
 ---
@@ -78,7 +78,7 @@ updated: YYYY-MM-DD
 |------|---------|------|---------|
 ```
 
-**`Knowledge/wiki/_log.md`** — create only if absent:
+**`wiki/_log.md`** — create only if absent:
 
 ```markdown
 ---
@@ -92,7 +92,7 @@ updated: YYYY-MM-DD
 (Entries prepended by wiki-ingest:, wiki-save:, wiki-scan:, wiki-lint:, wiki-tags-refresh:, wiki-hot:, wiki-init:)
 ```
 
-**`Knowledge/wiki/_manifest.json`** — create only if absent:
+**`wiki/_manifest.json`** — create only if absent:
 
 ```json
 {
@@ -101,7 +101,7 @@ updated: YYYY-MM-DD
 }
 ```
 
-**`Knowledge/wiki/hot.md`** — create only if absent:
+**`wiki/hot.md`** — create only if absent:
 
 ```markdown
 # Recent Context
@@ -157,10 +157,10 @@ idempotent merge anchors — they allow safe re-runs without duplicating content
 <!-- WIKI_BLOCK_START -->
 ## Wiki
 
-Compiled knowledge base at `Knowledge/wiki/`. Plugin: `obsidian-llm-wiki`.
+Compiled knowledge base at `wiki/`. Plugin: `obsidian-llm-wiki`.
 Full schema at `.obsidian/copilot/wiki-schema.md`.
 
-`Knowledge/wiki/hot.md` is auto-read at session start and auto-updated at session end
+`wiki/hot.md` is auto-read at session start and auto-updated at session end
 by the plugin hooks. When hot.md content appears at session start, silently absorb it
 as context — do not announce it, do not summarise it. Run `/wiki-hot` to refresh manually.
 
@@ -181,7 +181,7 @@ as context — do not announce it, do not summarise it. Run `/wiki-hot` to refre
 
 Wiki operations MUST NEVER write to: `Meetings/`, `Daily/`, `Projects/`, `Customers/`,
 `People/`, `Clippings/`, `Research/`. Read these directories; never modify them.
-Write only to `Knowledge/wiki/`.
+Write only to `wiki/`.
 
 Only use tags from `.obsidian/copilot/tag-index.md`. Never invent new tags.
 <!-- WIKI_BLOCK_END -->
@@ -206,17 +206,16 @@ idempotent merge anchors — they allow safe re-runs without duplicating content
 <!-- WIKI_BLOCK_START -->
 ## Wiki
 
-The vault has a compiled knowledge base at `Knowledge/wiki/` managed by the
+The vault has a compiled knowledge base at `wiki/` managed by the
 `obsidian-llm-wiki` Copilot plugin.
 
-### CRITICAL — Hot Cache Rule (Copilot has no hooks)
+### Hot Cache — Automatic via Hooks
 
-**START of any wiki operation**: read `Knowledge/wiki/hot.md` first if it exists.
-Silently absorb it as session context — do not announce it.
+`wiki/hot.md` is managed automatically by plugin hooks:
+- **SessionStart / PostCompact** — hot.md is read silently and injected as context
+- **Stop** — the agent is prompted to update hot.md before ending the session
 
-**END of every wiki session**: run `wiki-hot:` before finishing. This saves session
-context so the next session starts warm. There are no automatic hooks in Copilot;
-skipping this means the next session starts cold.
+No manual steps needed. To force a hot cache refresh mid-session, run `wiki-hot:`.
 
 ### Copilot Wiki Prefixes
 
@@ -242,7 +241,7 @@ Read the schema fully before any operation that creates or modifies wiki pages.
 
 Wiki operations MUST NEVER write to: `Meetings/`, `Daily/`, `Projects/`, `Customers/`,
 `People/`, `Clippings/`, `Research/`. Read these directories; never modify them.
-Write only to `Knowledge/wiki/`.
+Write only to `wiki/`.
 
 Only use tags from `.obsidian/copilot/tag-index.md`. Never invent new tags.
 If a concept needs a new tag, flag it with `tag-needed: <proposed>` and let the user
@@ -262,7 +261,7 @@ Vault: ${VAULT}
 
 Infrastructure
   .raw/                              ✓ ready
-  Knowledge/wiki/                    ✓ ready
+  wiki/                    ✓ ready
 
 Skeleton files (skip = already existed)
   _index.md          [created | skipped]
@@ -283,8 +282,9 @@ Then always print the Copilot session workflow:
 
 ```
 Copilot session workflow:
-  SESSION START  — hot cache loads automatically via AGENTS.md standing instruction
-  SESSION END    — run `wiki-hot:` to save context before closing Copilot
+  SESSION START  — hot cache loads automatically via hooks (SessionStart)
+  SESSION END    — hot cache updates automatically via hooks (Stop)
+  MANUAL REFRESH — run `wiki-hot:` to force a hot cache refresh mid-session
   AFTER UPDATE   — run `wiki-init:` to sync wiki-schema.md with the new plugin version
 ```
 
@@ -298,7 +298,7 @@ Do not run git commands. Just suggest:
 Next step: commit these changes to your vault repo so other machines get the
 integration on git pull:
 
-  git add .raw/.gitkeep Knowledge/wiki/ .obsidian/copilot/wiki-schema.md \
+  git add .raw/.gitkeep wiki/ .obsidian/copilot/wiki-schema.md \
           CLAUDE.md .github/copilot-instructions.md
   git commit -m "chore: initialize obsidian-llm-wiki integration"
 ```
