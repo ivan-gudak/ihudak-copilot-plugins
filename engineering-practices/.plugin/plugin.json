@@ -1,0 +1,14 @@
+{
+  "name": "engineering-practices",
+  "description": "Five skills for disciplined software engineering: structured debugging (diagnose), plan stress-testing (grill-me, grill-with-docs), architecture improvement (improve-codebase-architecture), and test-driven development (tdd).",
+  "version": "1.0.0",
+  "author": {
+    "name": "Ivan Hudak",
+    "url": "https://github.com/ihudak"
+  },
+  "homepage": "https://github.com/ihudak/ihudak-copilot-plugins/tree/main/engineering-practices",
+  "repository": "https://github.com/ihudak/ihudak-copilot-plugins",
+  "license": "MIT",
+  "keywords": ["tdd", "debugging", "diagnose", "architecture", "refactoring", "engineering"],
+  "skills": "./skills/"
+}

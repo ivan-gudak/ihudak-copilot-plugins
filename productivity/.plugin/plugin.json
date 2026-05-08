@@ -1,0 +1,14 @@
+{
+  "name": "productivity",
+  "description": "Productivity skills for working more efficiently with AI coding assistants — caveman compressed-output mode and a guide for writing new skills.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Ivan Hudak",
+    "url": "https://github.com/ihudak"
+  },
+  "homepage": "https://github.com/ihudak/ihudak-copilot-plugins/tree/main/productivity",
+  "repository": "https://github.com/ihudak/ihudak-copilot-plugins",
+  "license": "MIT",
+  "keywords": ["caveman", "write-a-skill", "productivity", "tokens", "compressed"],
+  "skills": "./skills/"
+}

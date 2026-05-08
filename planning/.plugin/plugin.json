@@ -1,0 +1,14 @@
+{
+  "name": "planning",
+  "description": "Pre-implementation planning skills: discovery interview for turning vague ideas into detailed specs, and pre-mortem risk analysis to identify failure modes before they occur.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Ivan Hudak",
+    "url": "https://github.com/ihudak"
+  },
+  "homepage": "https://github.com/ihudak/ihudak-copilot-plugins/tree/main/planning",
+  "repository": "https://github.com/ihudak/ihudak-copilot-plugins",
+  "license": "MIT",
+  "keywords": ["planning", "discovery", "premortem", "spec", "risk", "interview"],
+  "skills": "./skills/"
+}

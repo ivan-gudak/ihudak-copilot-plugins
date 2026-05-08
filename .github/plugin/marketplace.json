@@ -21,6 +21,24 @@
       "source": "obsidian-llm-wiki",
       "description": "LLM Wiki pattern for an active Obsidian vault. Eight skills (/wiki-init, /wiki-ingest, /wiki-scan, /wiki-query, /wiki-save, /wiki-lint, /wiki-hot, /wiki-tags-refresh) for ingesting, querying, saving, linting, and managing a persistent wiki compiled from meetings, projects, and daily notes.",
       "version": "0.1.0"
+    },
+    {
+      "name": "engineering-practices",
+      "source": "engineering-practices",
+      "description": "Structured engineering skills for diagnosis, TDD, architecture improvement, and design grilling. Skills: /diagnose, /tdd, /improve-codebase-architecture, /grill-me, /grill-with-docs.",
+      "version": "1.0.0"
+    },
+    {
+      "name": "planning",
+      "source": "planning",
+      "description": "Collaborative planning skills for feature discovery and risk analysis. Skills: /discovery-interview, /premortem.",
+      "version": "1.0.0"
+    },
+    {
+      "name": "productivity",
+      "source": "productivity",
+      "description": "Productivity booster skills for learning from constraints and skill creation. Skills: /caveman, /write-a-skill.",
+      "version": "1.0.0"
     }
   ]
 }
