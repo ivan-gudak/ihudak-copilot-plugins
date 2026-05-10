@@ -10,8 +10,13 @@ mid-project is seamless.
 
 ## Vault Path
 
-Default vault: `~/obsidian_vault` (Linux/Mac). WSL users with vault on Windows side must set
-`VAULT_PATH=/mnt/c/Users/<name>/obsidian_vault`. Override with the `VAULT_PATH` env var.
+Default vault: `~/obsidian_vault` (Linux/Mac). Environment variables accepted: `VAULT_PATH` (preferred) or `VAULT`. Recommended pattern:
+
+```bash
+VAULT="${VAULT_PATH:-${VAULT:-${HOME}/obsidian_vault}}"
+```
+
+WSL users with vault on Windows side should set `VAULT_PATH=/mnt/c/Users/<name>/obsidian_vault`.
 
 All file paths in skill instructions are relative to the vault root unless they start
 with `skills/` (which are relative to this plugin's installation directory).

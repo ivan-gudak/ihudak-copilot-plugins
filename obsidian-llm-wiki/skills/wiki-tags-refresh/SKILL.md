@@ -17,9 +17,14 @@ Invoke with: `/wiki-tags-refresh`
 
 ---
 
-## Step 1 — Resolve VAULT_PATH
+## Step 1 — Resolve vault path
 
-Vault path: `~/obsidian_vault` by default; set `VAULT_PATH` to override. WSL users with a Windows-side vault must set `VAULT_PATH` explicitly (e.g. `/mnt/c/Users/<name>/obsidian_vault`).
+Set `VAULT` using the recommended fallback pattern:
+```bash
+VAULT="${VAULT_PATH:-${VAULT:-${HOME}/obsidian_vault}}"
+```
+`VAULT_PATH` takes precedence; `VAULT` is accepted as an alias; `~/obsidian_vault` is the default.
+WSL users with a Windows-side vault must set `VAULT_PATH` explicitly (e.g. `/mnt/c/Users/<name>/obsidian_vault`).
 
 ---
 
@@ -32,11 +37,11 @@ Read `.obsidian/copilot/tag-index.md` fully. Extract every documented tag (lines
 
 ## Step 3 — Collect tags from pages
 
-Scan every `.md` file under the vault root (`${VAULT:-${HOME}/obsidian_vault}`) by default (excludes `.obsidian/`), or limit to a specific directory by running `/wiki-tags-refresh [directory]`.
+Scan every `.md` file under the vault root (`$VAULT`) by default (excludes `.obsidian/`), or limit to a specific directory by running `/wiki-tags-refresh [directory]`.
 
 The frontmatter extraction (YAML multi-line) across the vault:
 ```bash
-find "${VAULT:-${HOME}/obsidian_vault}" -name "*.md" -not -path "*/.obsidian/*" | xargs awk '
+find "${VAULT_PATH:-${VAULT:-${HOME}/obsidian_vault}}" -name "*.md" -not -path "*/.obsidian/*" | xargs awk '
   FNR==1{front=0; intags=0}
   /^---/{if(front==0) front=1; else front=0; next}
   !front{next}
@@ -48,7 +53,7 @@ find "${VAULT:-${HOME}/obsidian_vault}" -name "*.md" -not -path "*/.obsidian/*" 
 
 Also collect inline tags from page bodies across the same scope:
 ```bash
-grep -roh "#[a-zA-Z][a-zA-Z0-9/_-]*" "${VAULT:-${HOME}/obsidian_vault}" --exclude-dir=".obsidian" | grep -v "^#" | sort -u
+grep -roh "#[a-zA-Z][a-zA-Z0-9/_-]*" "${VAULT_PATH:-${VAULT:-${HOME}/obsidian_vault}}" --exclude-dir=".obsidian" | grep -v "^#" | sort -u
 ```
 
 Exclude false positives: markdown headings at line start (`^#`), code blocks, URLs.

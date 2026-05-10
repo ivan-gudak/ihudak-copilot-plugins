@@ -115,6 +115,8 @@ export VAULT_PATH="$HOME/path/to/your/obsidian_vault"
 $env:VAULT_PATH = "$env:USERPROFILE\path\to\your\obsidian_vault"
 ```
 
+`VAULT` is also accepted as an alias for `VAULT_PATH` (used as a fallback: `${VAULT_PATH:-${VAULT:-${HOME}/obsidian_vault}}`).
+
 **WSL note:** if your vault lives on the Windows side, use the Linux mount path:
 ```bash
 export VAULT_PATH="/mnt/c/Users/<YourWindowsUsername>/path/to/obsidian_vault"
@@ -163,7 +165,7 @@ behaviour.
 | `/wiki-save` | Save the current conversation as a wiki page |
 | `/wiki-lint` | Run a wiki health check and produce a lint report |
 | `/wiki-hot` | Manually refresh the hot cache |
-| `/wiki-tags-refresh` | Sync wiki tags with `.obsidian/copilot/tag-index.md` |
+| `/wiki-tags-refresh [directory]` | Sync tags by scanning the vault (default) or a target directory; updates `.obsidian/copilot/tag-index.md` after user approval |
 | `/wiki-task <description>` | Create a single task from natural language (effort, tags, priority, dates) |
 | `/wiki-tasks-extract [wiki-path]` | Batch-extract tasks from wiki content after ingest |
 | `/wiki-init` | Initialize vault integration (first run or after plugin update) |
@@ -261,6 +263,11 @@ Wiki operations write only to `wiki/` and `.raw/`.
 files and `Tasks.md`. These are the only wiki commands allowed outside `wiki/` and `.raw/`.
 
 ---
+
+## Changelog
+
+### 0.3.2
+- `wiki-tags-refresh`: now scans the whole vault by default (excludes `.obsidian/`). Accepts an optional directory argument. Documents VAULT_PATH/VAULT env var pattern.
 
 ## License
 
