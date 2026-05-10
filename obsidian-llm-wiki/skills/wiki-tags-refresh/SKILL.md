@@ -1,12 +1,11 @@
 ---
 name: wiki-tags-refresh
 description: >
-  Scan wiki/ for tags used in wiki page frontmatter, diff against the vault's
-  tag-index.md, prompt the user to approve new tags and clean stale ones, then update
-  tag-index.md in place. Mirrors the vault's /tags-refresh workflow but scoped to wiki
-  pages. Run after heavy ingest sessions when new concepts may have introduced new tags.
-  Triggers on: wiki-tags-refresh, refresh wiki tags, update tag index for wiki,
-  wiki tags, sync wiki tags.
+  Scan the vault (or a target directory) for tags used in page frontmatter and page bodies,
+  diff against the vault's .obsidian/copilot/tag-index.md, prompt the user to approve new tags
+  and clean stale ones, then update tag-index.md in place. Run after heavy ingest or other
+  large content changes when new concepts may have introduced new tags.
+  Triggers on: wiki-tags-refresh, refresh tags, update tag index, wiki tags, sync tags.
 allowed-tools: view, edit, create, bash, glob, grep
 ---
 
@@ -31,14 +30,13 @@ Read `.obsidian/copilot/tag-index.md` fully. Extract every documented tag (lines
 
 ---
 
-## Step 3 — Collect tags from wiki pages
+## Step 3 — Collect tags from pages
 
-Scan every `.md` file under `wiki/` for frontmatter `tags:` entries only.
-The previous broad grep also matched `related:` wikilinks — use the awk approach below
-to stay strictly within the `tags:` block:
+Scan every `.md` file under the vault root (`${VAULT:-${HOME}/obsidian_vault}`) by default (excludes `.obsidian/`), or limit to a specific directory by running `/wiki-tags-refresh [directory]`.
 
+The frontmatter extraction (YAML multi-line) across the vault:
 ```bash
-find "wiki" -name "*.md" | xargs awk '
+find "${VAULT:-${HOME}/obsidian_vault}" -name "*.md" -not -path "*/.obsidian/*" | xargs awk '
   FNR==1{front=0; intags=0}
   /^---/{if(front==0) front=1; else front=0; next}
   !front{next}
@@ -48,11 +46,9 @@ find "wiki" -name "*.md" | xargs awk '
 ' | sort -u
 ```
 
-> Note: tags must use the YAML multi-line block form (`tags:` followed by `  - tagname` lines); inline arrays (`tags: [a, b]`) are silently skipped by this script.
-
-Also collect inline tags from page bodies:
+Also collect inline tags from page bodies across the same scope:
 ```bash
-grep -roh "#[a-zA-Z][a-zA-Z0-9/_-]*" "wiki/" | grep -v "^#" | sort -u
+grep -roh "#[a-zA-Z][a-zA-Z0-9/_-]*" "${VAULT:-${HOME}/obsidian_vault}" --exclude-dir=".obsidian" | grep -v "^#" | sort -u
 ```
 
 Exclude false positives: markdown headings at line start (`^#`), code blocks, URLs.
@@ -63,8 +59,8 @@ Deduplicate the full collected set.
 
 ## Step 4 — Diff against tag-index.md
 
-- **New tags**: found in `wiki/` pages but NOT documented in `tag-index.md`
-- **Stale candidates**: documented in `tag-index.md` but found in ZERO wiki pages
+- **New tags**: found in scanned pages (default: entire vault) but NOT documented in `tag-index.md`
+- **Stale candidates**: documented in `tag-index.md` but found in ZERO scanned pages
   (flag only — never auto-remove; they may be used in other vault files)
 
 ---
