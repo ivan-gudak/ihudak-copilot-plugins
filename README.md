@@ -8,7 +8,7 @@ Ivan Gudak's private GitHub Copilot plugin marketplace.
 |--------|-------------|
 | [dev-workflows](dev-workflows/) | Structured development workflow skills: `impl:` for feature implementation, `fix-vuln:` for CVE remediation, `upgrade:` for dependency upgrades — with Opus review gate and parallel subagent execution |
 | [dt-style-guide](dt-style-guide/) | Dynatrace corporate style guide enforcement: `dt-review-pr`, `dt-review-docs`, `dt-style-refresh`, and sub-agents used by `dev-workflows` for style checking Epics and feature docs |
-| [obsidian-llm-wiki](obsidian-llm-wiki/) | Seven natural language prefixes for compiling Obsidian vault knowledge into a persistent, cross-referenced wiki; supports GitHub Copilot and Claude Code |
+| [obsidian-llm-wiki](obsidian-llm-wiki/) | Nine natural language prefixes for compiling Obsidian vault knowledge into a persistent, cross-referenced wiki; supports GitHub Copilot and Claude Code |
 
 ## Installation
 
