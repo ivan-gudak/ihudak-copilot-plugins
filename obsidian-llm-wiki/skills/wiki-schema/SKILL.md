@@ -13,8 +13,8 @@ description: >
 Vault knowledge schema for the wiki layer. All wiki skills read this file before
 operating. This is the single source of truth for conventions, boundaries, and formats.
 
-Both `/wiki-*` slash commands (Claude Code) and `wiki-*:` natural language prefixes
-(GitHub Copilot) follow these conventions identically.
+All `/wiki-*` slash commands follow these conventions identically across
+both Claude Code and GitHub Copilot.
 
 ---
 
@@ -33,8 +33,10 @@ to or delete files from:
 
 These are Layer 1 — read-only knowledge sources. The wiki reads them; it never modifies them.
 
-The existing task system (`/task`, `/tags-refresh`) writes to `Projects/Products/` and
-`Tasks.md`. The wiki layer does not interact with the task system at all.
+The wiki layer includes two task-management commands (`/wiki-task` and
+`/wiki-tasks-extract`) that intentionally write outside the wiki directory — to
+`Projects/` and `Tasks.md`. These commands follow the task-creation rules in
+`_shared/task-rules.md`. All other wiki operations remain wiki-directory-only.
 
 ---
 
@@ -233,7 +235,7 @@ Most applicable tags for wiki pages:
 
 If content clearly needs a tag that does not exist: use the closest existing tag AND
 note `tag-needed: <proposed-tag>` in the `_log.md` ingest entry. The user can then
-approve and add it via `/wiki-tags-refresh` (Claude Code) or `wiki-tags-refresh:` (Copilot),
+approve and add it via `/wiki-tags-refresh`,
 which scans `wiki/` for undocumented tags and updates `tag-index.md`.
 
 ---

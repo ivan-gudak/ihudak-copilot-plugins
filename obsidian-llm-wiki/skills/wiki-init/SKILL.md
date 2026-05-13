@@ -3,7 +3,7 @@ name: wiki-init
 description: >
   Initialize or re-initialize vault integration for the LLM wiki pattern. Creates .raw/
   inbox, bootstraps wiki/ with skeleton files (_index.md, _log.md,
-  _manifest.json, hot.md), syncs wiki-schema to .obsidian/copilot/, and merges wiki
+  _manifest.json, hot.md), syncs wiki-schema and task-creation-rules to .obsidian/copilot/, and merges wiki
   blocks into CLAUDE.md and .github/copilot-instructions.md. Safe to re-run after plugin
   updates — existing wiki pages are never touched, skeleton files are never overwritten.
   Triggers on: wiki-init, initialize the wiki, set up the wiki, bootstrap the wiki,
@@ -89,7 +89,7 @@ updated: YYYY-MM-DD
 
 # Wiki Ingest Log
 
-(Entries prepended by wiki-ingest:, wiki-save:, wiki-scan:, wiki-lint:, wiki-tags-refresh:, wiki-hot:, wiki-init:)
+(Entries prepended by /wiki-ingest, /wiki-save, /wiki-scan, /wiki-lint, /wiki-tags-refresh, /wiki-hot, /wiki-init)
 ```
 
 **`wiki/_manifest.json`** — create only if absent:
@@ -139,6 +139,38 @@ after plugin updates.
 
 ---
 
+## Step 4a — Bootstrap tag-index.md (if absent)
+
+Check whether `${VAULT}/.obsidian/copilot/tag-index.md` exists.
+
+- **If it exists**: skip — never overwrite a user's tag vocabulary.
+- **If it does not exist**: read the template from the plugin:
+
+```bash
+cat "${HOME}/.copilot/installed-plugins/ihudak-copilot-plugins/obsidian-llm-wiki/skills/_shared/tag-index-template.md"
+```
+
+Write the template content to `${VAULT}/.obsidian/copilot/tag-index.md`.
+This gives new users the expected category structure so they can start
+adding their own tags. The template contains only category headings and
+commented-out examples — no real tags.
+
+---
+
+## Step 4b — Sync task-creation-rules.md
+
+Read the canonical task rules from the plugin:
+
+```bash
+cat "${HOME}/.copilot/installed-plugins/ihudak-copilot-plugins/obsidian-llm-wiki/skills/_shared/task-rules.md"
+```
+
+Write the content to `${VAULT}/.obsidian/copilot/task-creation-rules.md`. **Always
+overwrite** — the plugin's `_shared/task-rules.md` is the canonical source.
+This keeps the vault copy in sync after plugin updates, just like wiki-schema.
+
+---
+
 ## Step 5 — Merge wiki block into CLAUDE.md
 
 Target: `${VAULT}/CLAUDE.md`
@@ -175,6 +207,8 @@ as context — do not announce it, do not summarise it. Run `/wiki-hot` to refre
 | `/wiki-lint` | Run wiki health check, produce lint report |
 | `/wiki-hot` | Manually refresh the hot cache |
 | `/wiki-tags-refresh` | Sync wiki tags with tag-index.md |
+| `/wiki-task <description>` | Create a single task from natural language |
+| `/wiki-tasks-extract [wiki-path]` | Extract tasks from wiki knowledge base |
 | `/wiki-init` | Re-initialize vault integration after plugin install/update |
 
 ### Wiki Boundary Rules
@@ -212,23 +246,25 @@ The vault has a compiled knowledge base at `wiki/` managed by the
 ### Hot Cache — Automatic via Hooks
 
 `wiki/hot.md` is managed automatically by plugin hooks:
-- **SessionStart / PostCompact** — hot.md is read silently and injected as context
+- **SessionStart** — hot.md is read silently and injected as context
 - **Stop** — the agent is prompted to update hot.md before ending the session
 
-No manual steps needed. To force a hot cache refresh mid-session, run `wiki-hot:`.
+No manual steps needed. To force a hot cache refresh mid-session, run `/wiki-hot`.
 
-### Copilot Wiki Prefixes
+### Wiki Commands
 
-| Prefix | Description |
-|--------|-------------|
-| `wiki-ingest: @filepath` | Ingest one source file into the wiki |
-| `wiki-scan: [directory]` | Scan directory for unprocessed files |
-| `wiki-query: <question>` | Answer from the compiled wiki with citations |
-| `wiki-save:` | Save current conversation as a wiki page |
-| `wiki-lint:` | Run wiki health check |
-| `wiki-hot:` | Refresh the hot cache (run at END of every wiki session) |
-| `wiki-tags-refresh:` | Sync wiki tags with tag-index.md |
-| `wiki-init:` | Re-initialize vault integration after plugin update |
+| Command | Description |
+|---------|-------------|
+| `/wiki-ingest @filepath` | Ingest one source file into the wiki |
+| `/wiki-scan [directory]` | Scan directory for unprocessed files |
+| `/wiki-query <question>` | Answer from the compiled wiki with citations |
+| `/wiki-save` | Save current conversation as a wiki page |
+| `/wiki-lint` | Run wiki health check |
+| `/wiki-hot` | Refresh the hot cache (run at END of every wiki session) |
+| `/wiki-tags-refresh` | Sync wiki tags with tag-index.md |
+| `/wiki-task <description>` | Create a single task from natural language |
+| `/wiki-tasks-extract [wiki-path]` | Extract tasks from wiki knowledge base |
+| `/wiki-init` | Re-initialize vault integration after plugin update |
 
 ### Wiki Schema
 
@@ -243,9 +279,12 @@ Wiki operations MUST NEVER write to: `Meetings/`, `Daily/`, `Projects/`, `Custom
 `People/`, `Clippings/`, `Research/`. Read these directories; never modify them.
 Write only to `wiki/`.
 
+**Exception**: `/wiki-task` and `/wiki-tasks-extract` intentionally write to `Projects/`
+files and `Tasks.md`. These are the only wiki commands allowed outside `wiki/` and `.raw/`.
+
 Only use tags from `.obsidian/copilot/tag-index.md`. Never invent new tags.
 If a concept needs a new tag, flag it with `tag-needed: <proposed>` and let the user
-approve it via `wiki-tags-refresh:`.
+approve it via `/wiki-tags-refresh`.
 <!-- WIKI_BLOCK_END -->
 
 ---
@@ -269,8 +308,10 @@ Skeleton files (skip = already existed)
   _manifest.json     [created | skipped]
   hot.md             [created | skipped]
 
-Schema sync
-  .obsidian/copilot/wiki-schema.md   [synced | skipped — .obsidian/copilot/ not found]
+Schema & rules sync
+  .obsidian/copilot/wiki-schema.md           [synced | skipped — .obsidian/copilot/ not found]
+  .obsidian/copilot/tag-index.md             [created from template | skipped — already exists]
+  .obsidian/copilot/task-creation-rules.md   [synced | skipped — .obsidian/copilot/ not found]
 
 Instruction file merges
   CLAUDE.md                          [section added | section updated | skipped — not found]
@@ -284,8 +325,8 @@ Then always print the Copilot session workflow:
 Copilot session workflow:
   SESSION START  — hot cache loads automatically via hooks (SessionStart)
   SESSION END    — hot cache updates automatically via hooks (Stop)
-  MANUAL REFRESH — run `wiki-hot:` to force a hot cache refresh mid-session
-  AFTER UPDATE   — run `wiki-init:` to sync wiki-schema.md with the new plugin version
+  MANUAL REFRESH — run `/wiki-hot` to force a hot cache refresh mid-session
+  AFTER UPDATE   — run `/wiki-init` to sync wiki-schema.md with the new plugin version
 ```
 
 ---
@@ -299,6 +340,7 @@ Next step: commit these changes to your vault repo so other machines get the
 integration on git pull:
 
   git add .raw/.gitkeep wiki/ .obsidian/copilot/wiki-schema.md \
+          .obsidian/copilot/tag-index.md .obsidian/copilot/task-creation-rules.md \
           CLAUDE.md .github/copilot-instructions.md
   git commit -m "chore: initialize obsidian-llm-wiki integration"
 ```

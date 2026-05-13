@@ -2,8 +2,7 @@
 
 LLM Wiki pattern for an active Obsidian vault. Compiles knowledge from meetings,
 projects, daily notes, and raw sources into a persistent, cross-referenced wiki at
-`wiki/`. Supports both GitHub Copilot (natural language prefixes) and
-Claude Code (slash commands) as first-class agents.
+`wiki/`. Works with GitHub Copilot and Claude Code via unified `/wiki-*` slash commands.
 
 ## Installation
 
@@ -21,37 +20,42 @@ copilot plugin install obsidian-llm-wiki@ihudak-copilot-plugins
   mkdir .raw && touch .raw/.gitkeep
   ```
 
-## Usage — Natural Language Prefixes
+## Usage — Slash Commands
 
-| Prefix | Description |
-|--------|-------------|
-| `wiki-init:` | Initialize or re-initialize vault integration for the wiki |
-| `wiki-ingest: @filepath` | Ingest one source file into the wiki |
-| `wiki-scan: [directory]` | Scan directory for unprocessed files; batch-ingest new/changed |
-| `wiki-query: <question>` | Answer from the compiled wiki with citations |
-| `wiki-save:` | Save current conversation as a wiki page |
-| `wiki-lint:` | Run wiki health check, produce lint report |
-| `wiki-hot:` | Manually refresh the hot cache |
-| `wiki-tags-refresh:` | Sync wiki tags with `.obsidian/copilot/tag-index.md` |
+| Command | Description |
+|---------|-------------|
+| `/wiki-init` | Initialize or re-initialize vault integration for the wiki |
+| `/wiki-ingest @filepath` | Ingest one source file into the wiki |
+| `/wiki-scan [directory]` | Scan directory for unprocessed files; batch-ingest new/changed |
+| `/wiki-query <question>` | Answer from the compiled wiki with citations |
+| `/wiki-save` | Save current conversation as a wiki page |
+| `/wiki-lint` | Run wiki health check, produce lint report |
+| `/wiki-hot` | Manually refresh the hot cache |
+| `/wiki-tags-refresh` | Sync wiki tags with `.obsidian/copilot/tag-index.md` |
+| `/wiki-task <description>` | Create a single task from natural language |
+| `/wiki-tasks-extract [wiki-path]` | Extract tasks from wiki knowledge base |
 
 ## Skills
 
 | Skill | Trigger |
 |-------|---------|
-| wiki-init | `wiki-init:` |
-| wiki-ingest | `wiki-ingest:` |
-| wiki-scan | `wiki-scan:` |
-| wiki-query | `wiki-query:` |
-| wiki-save | `wiki-save:` |
-| wiki-lint | `wiki-lint:` |
-| wiki-hot | `wiki-hot:` |
-| wiki-tags-refresh | `wiki-tags-refresh:` |
+| wiki-init | `/wiki-init` |
+| wiki-ingest | `/wiki-ingest` |
+| wiki-scan | `/wiki-scan` |
+| wiki-query | `/wiki-query` |
+| wiki-save | `/wiki-save` |
+| wiki-lint | `/wiki-lint` |
+| wiki-hot | `/wiki-hot` |
+| wiki-tags-refresh | `/wiki-tags-refresh` |
+| wiki-task | `/wiki-task` |
+| wiki-tasks-extract | `/wiki-tasks-extract` |
 | wiki-schema | Loaded automatically before every wiki operation |
 
 ## Boundary Rules
 
-Wiki operations never write to: `Meetings/`, `Daily/`, `Projects/`, `Customers/`,
+Wiki operations never write to: `Meetings/`, `Daily/`, `Customers/`,
 `People/`, `Clippings/`, `Research/`. All wiki output goes to `wiki/`.
+Exception: `/wiki-task` and `/wiki-tasks-extract` write to `Projects/` and `Tasks.md`.
 
 ## Claude Code (sister plugin)
 
