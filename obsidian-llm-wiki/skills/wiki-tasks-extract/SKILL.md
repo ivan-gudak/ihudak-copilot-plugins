@@ -12,7 +12,7 @@ allowed-tools: view, edit, create, bash, glob, grep, ask_user
 
 # wiki-tasks-extract
 
-Read this file fully before proceeding:
+Read these files fully before proceeding:
 - `~/.copilot/installed-plugins/ihudak-copilot-plugins/obsidian-llm-wiki/skills/_shared/task-rules.md`
 - `~/.copilot/installed-plugins/ihudak-copilot-plugins/obsidian-llm-wiki/skills/_shared/vault-conventions.md`
 

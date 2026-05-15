@@ -3,9 +3,10 @@ name: wiki-init
 description: >
   Initialize or re-initialize vault integration for the LLM wiki pattern. Creates .raw/
   inbox, bootstraps wiki/ with skeleton files (_index.md, _log.md,
-  _manifest.json, hot.md), syncs wiki-schema and task-creation-rules to .obsidian/copilot/, and merges wiki
-  blocks into CLAUDE.md and .github/copilot-instructions.md. Safe to re-run after plugin
-  updates — existing wiki pages are never touched, skeleton files are never overwritten.
+  _manifest.json, hot.md), syncs wiki-schema and task-creation-rules to .obsidian/copilot/,
+  bootstraps tag-index.md if absent, and merges wiki blocks into CLAUDE.md and
+  .github/copilot-instructions.md. Safe to re-run after plugin updates — existing wiki
+  pages are never touched, skeleton files are never overwritten.
   Triggers on: wiki-init, initialize the wiki, set up the wiki, bootstrap the wiki,
   init wiki, wiki setup, wiki initialize, set up obsidian-llm-wiki.
 allowed-tools: view, edit, create, bash, glob, grep
@@ -157,7 +158,7 @@ commented-out examples — no real tags.
 
 ---
 
-## Step 4b — Sync task-creation-rules.md
+## Step 4b — Sync task-creation-rules to vault
 
 Read the canonical task rules from the plugin:
 
@@ -208,7 +209,7 @@ as context — do not announce it, do not summarise it. Run `/wiki-hot` to refre
 | `/wiki-hot` | Manually refresh the hot cache |
 | `/wiki-tags-refresh` | Sync wiki tags with tag-index.md |
 | `/wiki-task <description>` | Create a single task from natural language |
-| `/wiki-tasks-extract [wiki-path]` | Extract tasks from wiki knowledge base |
+| `/wiki-tasks-extract [wiki-path]` | Batch-extract tasks from wiki content |
 | `/wiki-init` | Re-initialize vault integration after plugin install/update |
 
 ### Wiki Boundary Rules
@@ -266,7 +267,7 @@ No manual steps needed. To force a hot cache refresh mid-session, run `/wiki-hot
 | `/wiki-hot` | Refresh the hot cache (run at END of every wiki session) |
 | `/wiki-tags-refresh` | Sync wiki tags with tag-index.md |
 | `/wiki-task <description>` | Create a single task from natural language |
-| `/wiki-tasks-extract [wiki-path]` | Extract tasks from wiki knowledge base |
+| `/wiki-tasks-extract [wiki-path]` | Batch-extract tasks from wiki content |
 | `/wiki-init` | Re-initialize vault integration after plugin update |
 
 ### Wiki Schema
@@ -303,7 +304,7 @@ Vault: ${VAULT}
 
 Infrastructure
   .raw/                              ✓ ready
-  wiki/                    ✓ ready
+  wiki/                              ✓ ready
 
 Skeleton files (skip = already existed)
   _index.md          [created | skipped]
@@ -322,10 +323,10 @@ Instruction file merges
 ──────────────────────────────────────────────────
 ```
 
-Then always print the Copilot session workflow:
+Then always print the session workflow:
 
 ```
-Copilot session workflow:
+Session workflow:
   SESSION START  — hot cache loads automatically via hooks (SessionStart)
   SESSION END    — hot cache updates automatically via hooks (Stop)
   MANUAL REFRESH — run `/wiki-hot` to force a hot cache refresh mid-session

@@ -9,6 +9,6 @@
   "homepage": "https://github.com/ihudak/ihudak-copilot-plugins/tree/main/obsidian-llm-wiki",
   "repository": "https://github.com/ihudak/ihudak-copilot-plugins",
   "license": "MIT",
-  "keywords": ["obsidian", "wiki", "knowledge-base", "llm", "karpathy", "vault", "notes"],
+  "keywords": ["obsidian", "wiki", "knowledge-base", "llm", "karpathy", "vault", "notes", "copilot", "claude"],
   "skills": "./skills/"
 }
