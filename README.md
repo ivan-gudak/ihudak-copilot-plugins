@@ -15,7 +15,7 @@ Ivan Gudak's private GitHub Copilot plugin marketplace.
 ### 1. Add this marketplace to GitHub Copilot (once)
 
 ```bash
-copilot plugin marketplace add ivan-gudak/ihudak-copilot-plugins
+copilot plugin marketplace add ihudak/ihudak-copilot-plugins
 ```
 
 ### 2. Install plugins
