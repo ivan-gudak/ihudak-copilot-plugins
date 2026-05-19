@@ -223,7 +223,8 @@ a large directory is fast.
 gives the agent instant context at session start without re-reading hundreds of pages.
 
 - **Copilot**: auto-read at session start (SessionStart hook), auto-updated at
-  session end (Stop hook).
+  session end (Stop hook). **Both hooks only activate when Copilot is launched from
+  `$VAULT_PATH`** — they are silent in all other projects.
 - **Claude Code**: same hooks, plus PostCompact hook re-injects hot cache after
   context compaction.
 

@@ -1,7 +1,7 @@
 {
   "name": "obsidian-llm-wiki",
   "description": "LLM Wiki pattern for an active Obsidian vault. Eleven skills (wiki-init, wiki-ingest, wiki-scan, wiki-query, wiki-save, wiki-lint, wiki-hot, wiki-tags-refresh, wiki-schema, wiki-task, wiki-tasks-extract) compile knowledge from meetings, projects, daily notes, and raw sources into a persistent, cross-referenced wiki at wiki/. Includes task management: create individual tasks from natural language and batch-extract tasks from wiki content. Supports GitHub Copilot and Claude Code as first-class agents.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "author": {
     "name": "Ivan Gudak",
     "url": "https://github.com/ihudak"

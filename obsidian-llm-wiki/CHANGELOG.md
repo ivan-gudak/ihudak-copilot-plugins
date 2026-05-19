@@ -4,6 +4,17 @@ All notable changes to the **obsidian-llm-wiki** plugin are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow semver at the plugin level.
 
+## [0.3.1]
+
+### Fixed
+- **Stop hook infinite loop**: Copilot CLI never sets `stop_hook_active=true` after a
+  block-triggered AI run, causing the Stop hook to re-block indefinitely. Added a
+  `find -mmin -3` recency guard on `hot.md` — if the file was updated in the last
+  3 minutes, exit 0 and allow the session to stop.
+- **Hooks fire in every project**: Both SessionStart and Stop hooks now check that
+  `$PWD` resolves to `$VAULT_PATH` before doing anything. Outside the vault they exit
+  immediately, so the plugin is silent in all other projects.
+
 ## [0.3.0]
 
 ### Added
