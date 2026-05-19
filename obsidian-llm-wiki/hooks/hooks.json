@@ -11,7 +11,7 @@
     "Stop": [
       {
         "type": "command",
-        "bash": "INPUT=\"$(cat)\"; ACTIVE=\"$(printf '%s' \"$INPUT\" | grep -o '\"stop_hook_active\"[^,}]*' | grep -o 'true\\|false' || echo false)\"; [ \"$ACTIVE\" = \"true\" ] && exit 0; VAULT=\"${VAULT_PATH:-${HOME}/obsidian_vault}\"; [ -d \"${VAULT}/wiki\" ] && printf '{\"decision\":\"block\",\"reason\":\"Read %s/skills/wiki-hot/SKILL.md fully, then update wiki/hot.md to reflect this session. Keep total under 300 words. Preserve relevant context from previous sessions already in the file; drop what is now stale or superseded. Overwrite the file completely -- it is a rolling cache, not a journal. If nothing wiki-related happened this session, update Last Updated and note no wiki changes this session.\"}' \"${PLUGIN_ROOT}\" || true"
+        "bash": "INPUT=\"$(cat)\"; ACTIVE=\"$(printf '%s' \"$INPUT\" | grep -o '\"stop_hook_active\"[^,}]*' | grep -o 'true\\|false' || echo false)\"; [ \"$ACTIVE\" = \"true\" ] && exit 0; VAULT=\"${VAULT_PATH:-${HOME}/obsidian_vault}\"; [ -d \"${VAULT}/wiki\" ] || exit 0; find \"${VAULT}/wiki/hot.md\" -mmin -3 2>/dev/null | grep -q . && exit 0; printf '{\"decision\":\"block\",\"reason\":\"Read %s/skills/wiki-hot/SKILL.md fully, then update wiki/hot.md to reflect this session. Keep total under 300 words. Preserve relevant context from previous sessions already in the file; drop what is now stale or superseded. Overwrite the file completely -- it is a rolling cache, not a journal. If nothing wiki-related happened this session, update Last Updated and note no wiki changes this session.\"}' \"${PLUGIN_ROOT}\""
       }
     ]
   }
