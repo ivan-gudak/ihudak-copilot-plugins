@@ -28,7 +28,7 @@
       "name": "obsidian-llm-wiki",
       "source": "obsidian-llm-wiki",
       "description": "LLM Wiki pattern for an active Obsidian vault. Eleven skills (wiki-init, wiki-ingest, wiki-scan, wiki-query, wiki-save, wiki-lint, wiki-hot, wiki-tags-refresh, wiki-schema, wiki-task, wiki-tasks-extract) for ingesting, querying, saving, linting, and managing a persistent wiki compiled from meetings, projects, and daily notes. Includes task management: create individual tasks and batch-extract tasks from wiki content.",
-      "version": "0.3.1",
+      "version": "0.3.1"
     }
   ]
 }
