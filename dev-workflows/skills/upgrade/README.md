@@ -1,4 +1,4 @@
-# `upgrade:` skill
+# `/upgrade` skill
 
 A GitHub Copilot CLI skill that upgrades components in your repository — libraries, frameworks, language runtimes, build tools, and CI/CD actions — with a single command.
 
@@ -9,20 +9,20 @@ Works on **any project** regardless of language or ecosystem (Java/Gradle/Maven,
 ## Quick start
 
 ```
-upgrade: <component>[:<version>] [<component>[:<version>] ...]
+/upgrade <component>[:<version>] [<component>[:<version>] ...]
 ```
 
 **Examples:**
 
 | Command | What it does |
 |---|---|
-| `upgrade: java:lts` | Upgrades Java to the current LTS release (e.g. 21) |
-| `upgrade: springboot:minor` | Upgrades Spring Boot to the latest patch within the current major.minor (e.g. 3.1.x → 3.1.11) |
-| `upgrade: gradle:latest` | Upgrades the Gradle wrapper to the latest release |
-| `upgrade: lodash:4.17.21` | Pins lodash to exactly 4.17.21 |
-| `upgrade: requests` | Upgrades Python `requests` to the latest stable release |
-| `upgrade: .github/workflows` | Upgrades all GitHub Actions to their latest versions |
-| `upgrade: java:lts springboot:minor gradle:latest` | Upgrades all three, one at a time |
+| `/upgrade java:lts` | Upgrades Java to the current LTS release (e.g. 21) |
+| `/upgrade springboot:minor` | Upgrades Spring Boot to the latest patch within the current major.minor (e.g. 3.1.x → 3.1.11) |
+| `/upgrade gradle:latest` | Upgrades the Gradle wrapper to the latest release |
+| `/upgrade lodash:4.17.21` | Pins lodash to exactly 4.17.21 |
+| `/upgrade requests` | Upgrades Python `requests` to the latest stable release |
+| `/upgrade .github/workflows` | Upgrades all GitHub Actions to their latest versions |
+| `/upgrade java:lts springboot:minor gradle:latest` | Upgrades all three, one at a time |
 
 ---
 
@@ -84,7 +84,7 @@ The skill automatically detects the ecosystem from files in the repo:
 ## GitHub Actions upgrade
 
 ```
-upgrade: .github/workflows
+/upgrade .github/workflows
 ```
 
 Scans every workflow file for `uses: owner/action@ref` lines and upgrades each to the latest release. Also updates SHA-pinned references. Reports any major-version bumps (potential breaking changes) prominently.
@@ -94,7 +94,7 @@ Scans every workflow file for `uses: owner/action@ref` lines and upgrades each t
 ## Multiple components
 
 ```
-upgrade: java:lts springboot:minor node:lts
+/upgrade java:lts springboot:minor node:lts
 ```
 
 Components are upgraded **one at a time in order**. After each upgrade, the build and tests are verified before the next component is started. If an upgrade fails or breaks tests, you are asked what to do before proceeding.
@@ -105,11 +105,11 @@ Components are upgraded **one at a time in order**. After each upgrade, the buil
 
 Before any files are changed, the skill checks that requested versions are compatible with each other and with the existing stack.
 
-**Incompatible explicit versions** — if you request two versions that won't work together (e.g. `upgrade: gradle:9 java:11` when Gradle 9 requires Java 17+), the skill stops and offers alternatives:
+**Incompatible explicit versions** — if you request two versions that won't work together (e.g. `/upgrade gradle:9 java:11` when Gradle 9 requires Java 17+), the skill stops and offers alternatives:
 - The highest Gradle version that works with Java 11, **or**
 - Upgrading Java to 17 so Gradle 9 becomes compatible
 
-**Bare token (no version)** — treated as "latest compatible", not "absolute latest". The skill finds the highest version that works with everything else in the repo. For example, `upgrade: gradle` with Java 11 in the repo will resolve to Gradle 8.x, not Gradle 9.
+**Bare token (no version)** — treated as "latest compatible", not "absolute latest". The skill finds the highest version that works with everything else in the repo. For example, `/upgrade gradle` with Java 11 in the repo will resolve to Gradle 8.x, not Gradle 9.
 
 **`latest` with incompatible stack** — if the absolute latest release is incompatible with the rest of the repo, the skill reports the conflict and suggests either a lower compatible version or what else would need to change.
 
@@ -146,7 +146,7 @@ If a previously-green test fails after an upgrade:
 
 ## Tips
 
-- Run `upgrade: .github/workflows` periodically to keep your CI/CD actions current.
-- Use `upgrade: <framework>:minor` before a major version jump to ensure you're on the latest patch first.
-- For Java, `upgrade: java:lts` updates all version declarations consistently — build files, `.sdkmanrc`, `.java-version`, `.tool-versions`, Dockerfiles, and GitHub Actions workflow files.
+- Run `/upgrade .github/workflows` periodically to keep your CI/CD actions current.
+- Use `/upgrade <framework>:minor` before a major version jump to ensure you're on the latest patch first.
+- For Java, `/upgrade java:lts` updates all version declarations consistently — build files, `.sdkmanrc`, `.java-version`, `.tool-versions`, Dockerfiles, and GitHub Actions workflow files.
 - When upgrading Spring Boot across major versions, check the generated summary for companion dependency changes and review the linked migration guide.

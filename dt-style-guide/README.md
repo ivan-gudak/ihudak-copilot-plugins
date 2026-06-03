@@ -23,7 +23,7 @@ rules when writing and reviewing product documentation, planning documents
 
 ## Skills
 
-### `dt-review-pr` — Review PR documentation changes
+### `/dt-review-pr` — Review PR documentation changes
 
 Reviews the markdown files changed in a pull request against the Dynatrace
 style guide. Works with Bitbucket-style merge commits (finds PRs by number in
@@ -32,10 +32,10 @@ style guide. Works with Bitbucket-style merge commits (finds PRs by number in
 **Usage:**
 
 ```
-dt-review-pr 9089
-dt-review-pr 9089 --repo /repos/dynatrace-docs
-dt-review-pr alexander-huetter/noissue-improve-managed-docs
-dt-review-pr my-branch --doc-type product-docs
+/dt-review-pr 9089
+/dt-review-pr 9089 --repo /repos/dynatrace-docs
+/dt-review-pr alexander-huetter/noissue-improve-managed-docs
+/dt-review-pr my-branch --doc-type product-docs
 ```
 
 **Arguments:**
@@ -55,7 +55,7 @@ dt-review-pr my-branch --doc-type product-docs
 5. Shows violations in diff context so you see what changed alongside what violated.
 6. Offers to auto-fix via `dt-doc-fixer`.
 
-### `dt-review-docs` — Review documentation files or directories
+### `/dt-review-docs` — Review documentation files or directories
 
 Reviews one or more markdown files (or a whole directory tree) against the
 Dynatrace corporate style guide. Optionally applies safe automatic fixes.
@@ -63,12 +63,12 @@ Dynatrace corporate style guide. Optionally applies safe automatic fixes.
 **Usage:**
 
 ```
-dt-review-docs docs/get-started/
-dt-review-docs docs/get-started/index.md
-dt-review-docs docs/setup/ docs/config/auth.md
-dt-review-docs docs/ --fix
-dt-review-docs docs/ --severity MINOR
-dt-review-docs docs/ --doc-type product-docs --fix
+/dt-review-docs docs/get-started/
+/dt-review-docs docs/get-started/index.md
+/dt-review-docs docs/setup/ docs/config/auth.md
+/dt-review-docs docs/ --fix
+/dt-review-docs docs/ --severity MINOR
+/dt-review-docs docs/ --doc-type product-docs --fix
 ```
 
 **Arguments:**
@@ -87,12 +87,12 @@ dt-review-docs docs/ --doc-type product-docs --fix
 4. Reports violations grouped by file.
 5. With `--fix`: applies safe fixes via `dt-doc-fixer`, then re-checks to verify.
 
-### `dt-style-refresh` — Update vendored references
+### `/dt-style-refresh` — Update vendored references
 
 Fetches the latest rules from `styleguide.dynatrace.com` and updates the
 vendored reference docs. Run when the style guide has been updated.
 
-> **Note:** `dt-style-refresh` updates the **runtime** copy at
+> **Note:** `/dt-style-refresh` updates the **runtime** copy at
 > `~/.copilot/installed-plugins/ihudak-copilot-plugins/dt-style-guide/references/`.
 > These changes are lost on the next plugin reinstall. To persist updates,
 > copy the refreshed files back into the plugin source at
@@ -102,13 +102,13 @@ vendored reference docs. Run when the style guide has been updated.
 
 This plugin is a **fallback** for the `docs-style-checker` sub-agent in `dev-workflows`:
 
-- **`impl:jira:docs:`** Phase 6.7 invokes `docs-style-checker` first (wraps the repo's
+- **`/impl:jira:docs`** Phase 6.7 invokes `docs-style-checker` first (wraps the repo's
   own Vale/markdownlint). If that returns `NOT_CONFIGURED`, it falls back to
   `dt-style-checker` from this plugin.
-- **`impl:jira:epics:`** Phase 6.7 invokes `dt-style-checker` directly (Epic drafts
+- **`/impl:jira:epics`** Phase 6.7 invokes `dt-style-checker` directly (Epic drafts
   are vault-internal and have no repo linter).
-- **`dt-review-pr` and `dt-review-docs`** are standalone — invoke them directly
-  without going through the `impl:` pipeline.
+- **`/dt-review-pr` and `/dt-review-docs`** are standalone — invoke them directly
+  without going through the `/impl` pipeline.
 
 If `dt-style-guide` is not installed, `dev-workflows` proceeds without it —
 existing behaviour is preserved.
