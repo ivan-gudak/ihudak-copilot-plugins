@@ -1,17 +1,12 @@
 ---
 name: vuln-research
-description: >
-  Sub-agent for the fix-vuln / vuln: workflow. Handles the read-only research phase
-  of CVE remediation: NVD API lookup, library detection in the repository, current
-  version discovery, and minimum safe version resolution. Invoked explicitly by the
-  fix-vuln orchestrator — NOT triggered by direct user prompts. Accepts a structured
-  handoff document (list of CVE + optional Jira IDs, repo path) and produces a
-  research report consumed by the vuln-fixer sub-agent. Has no side effects.
+description: "Sub-agent for the fix-vuln / vuln: workflow. Handles the read-only research phase of CVE remediation: NVD API lookup, library detection in the repository, current version discovery, and minimum safe version resolution. Invoked explicitly by the fix-vuln orchestrator — NOT triggered by direct user prompts. Accepts a structured handoff document (list of CVE + optional Jira IDs, repo path) and produces a research report consumed by the vuln-fixer sub-agent. Has no side effects."
+tools: [view, grep, glob, bash, web_fetch]
 ---
 
 # vuln-research — CVE Research Sub-agent
 
-Read `references/handoff.md` for the exact input/output document format.
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/vuln-research/references/handoff.md` for the exact input/output document format.
 Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/fix-vuln/references/nvd-api.md` for NVD REST API details.
 Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/fix-vuln/references/build-systems.md` for per-ecosystem library detection.
 
@@ -34,7 +29,7 @@ For each CVE in the input handoff:
    - Check the package registry for the lowest available version ≥ the patched boundary.
    - Prefer a patch bump; avoid a major version change unless no patch/minor fix exists.
 
-6. **Assemble output** — Produce one report entry per CVE (see `references/handoff.md` output format).
+6. **Assemble output** — Produce one report entry per CVE (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/vuln-research/references/handoff.md` output format).
 
 ## Invariants
 

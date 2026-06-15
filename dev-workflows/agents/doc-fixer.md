@@ -1,11 +1,7 @@
 ---
 name: doc-fixer
-description: >
-  Applies targeted fixes for BLOCKER and MAJOR findings from a doc-reviewer,
-  epic-reviewer, or docs-style-checker report. Mirrors review-fixer for the docs
-  domain. Returns a structured Fix Report with a Stop condition flag; the caller
-  re-runs the reviewer. Shared between impl:jira:docs: and impl:jira:epics:
-  workflows. Inherits the session's model.
+description: "Applies targeted fixes for BLOCKER and MAJOR findings from a doc-reviewer, epic-reviewer, or docs-style-checker report. Mirrors review-fixer for the docs domain. Returns a structured Fix Report with a Stop condition flag; the caller re-runs the reviewer. Shared between impl:jira:docs: and impl:jira:epics: workflows. Inherits the session's model."
+tools: [view, grep, glob, bash, edit, create]
 ---
 
 # doc-fixer — Post-Review Documentation Fix Sub-Agent

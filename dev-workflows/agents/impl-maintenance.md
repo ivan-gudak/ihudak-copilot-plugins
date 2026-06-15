@@ -1,17 +1,12 @@
 ---
 name: impl-maintenance
-description: >
-  Sub-agent for the impl: workflow. Handles all Phase 4 post-implementation
-  maintenance tasks: update the knowledge base, update copilot instructions,
-  and update repository documentation. Invoked by the impl orchestrator after
-  Phase 3 (implementation) completes successfully. Accepts a compact
-  implementation summary handoff — does NOT need the full conversation history.
-  NOT triggered by direct user prompts.
+description: "Sub-agent for the impl: workflow. Handles all Phase 4 post-implementation maintenance tasks: update the knowledge base, update copilot instructions, and update repository documentation. Invoked by the impl orchestrator after Phase 3 (implementation) completes successfully. Accepts a compact implementation summary handoff — does NOT need the full conversation history. NOT triggered by direct user prompts."
+tools: [view, grep, glob, bash, edit, create]
 ---
 
 # impl-maintenance — Post-implementation Maintenance Sub-agent
 
-Read `references/handoff.md` for the input document format.
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/impl-maintenance/references/handoff.md` for the input document format.
 
 ## Process
 
@@ -64,7 +59,7 @@ Evaluate whether the implementation reveals missing rules, outdated instructions
 
 ## Output
 
-Produce the maintenance report (see `references/handoff.md` output format).
+Produce the maintenance report (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/impl-maintenance/references/handoff.md` output format).
 
 ## Invariants
 

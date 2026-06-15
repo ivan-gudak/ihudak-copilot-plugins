@@ -48,7 +48,7 @@ pass it to **every** sub-agent invocation (`upgrade-planner`,
 - **SIMPLE / MODERATE** — proceed with the existing two-phase flow below
   (Phase 1 planning → Phase 2 execution). No mandatory Opus steps.
 - **SIGNIFICANT / HIGH-RISK** —
-  - Invoke `upgrade-planner` sub-agents with `model: claude-opus-4.7` (or the
+  - Invoke `upgrade-planner` sub-agents with `model: claude-opus-4.8` (or the
     highest available per `_shared/model-routing.md` §2). Planning is done by
     Opus.
   - Phase 2 execution applies the change with the current model or Sonnet
@@ -93,7 +93,7 @@ The workflow has two phases: **Compatibility planning** (no files are changed) f
 
 2. **Spawn `upgrade-planner` sub-agents in parallel** — one per requested component.
    For each, build a plan request handoff (see `upgrade-planner/references/handoff.md`) including the full `repo_inventory`, the `other_upgrades` list, and the `model_routing` block from Phase 0. Use `/fleet` for parallel execution.
-   For SIGNIFICANT/HIGH-RISK batches, invoke each planner with `model: claude-opus-4.7` (or highest available per `_shared/model-routing.md` §2).
+   For SIGNIFICANT/HIGH-RISK batches, invoke each planner with `model: claude-opus-4.8` (or highest available per `_shared/model-routing.md` §2).
 
 3. **Collect results**:
    - `READY` plans → proceed to Phase 2.
@@ -156,14 +156,14 @@ When a `CONFLICT` is returned, the `upgrade-planner` sub-agent provides ranked a
 4. **Phase 2.5 — Opus Code Review** *(SIGNIFICANT / HIGH-RISK only — gate before tests)*
    - Build the diff/summary of every file changed by the executor.
    - Invoke a `code-review` sub-agent pinned to Opus (`task` with
-     `agent_type: "code-review"`, `model: "claude-opus-4.7"` or highest
+     `agent_type: "dev-workflows:code-review"`, `model: "claude-opus-4.8"` or highest
      available, `mode: "sync"`). Embed the §6 checklist from
      `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/model-routing.md` in the prompt and require
      `OK | CONCERN | BLOCKER` per item.
    - **Invoke `review-fixer`** to apply BLOCKER+MAJOR findings:
      ```
      task(
-       agent_type: "review-fixer",
+       agent_type: "dev-workflows:review-fixer",
        mode:       "sync",
        description:"Apply review fixes for upgrade",
        prompt:     "<upgrade summary> + <full review output> + project root: <absolute path>"
@@ -311,7 +311,7 @@ kb_context: >
 
 ```
 task(
-  agent_type: "impl-maintenance",
+  agent_type: "dev-workflows:impl-maintenance",
   mode:       "sync",
   description:"Post-upgrade maintenance",
   prompt:     "<handoff document above>"

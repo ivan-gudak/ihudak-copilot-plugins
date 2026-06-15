@@ -72,8 +72,7 @@ smaller subset."
 
 Invoke the `dt-style-checker` sub-agent with:
 
-- `agent_type: "general-purpose"`
-- Include the full content of `~/.copilot/installed-plugins/ihudak-copilot-plugins/dt-style-guide/skills/dt-style-checker/SKILL.md`
+- `agent_type: "dt-style-guide:dt-style-checker"`
 - Pass input block:
 
 ```yaml
@@ -149,8 +148,7 @@ If `fix_mode` is `true`:
    auto-fixed: terminology swaps, banned-word replacements, formatting corrections.
    Ambiguous violations (voice/tone, structural) will be skipped."
 3. Invoke the `dt-doc-fixer` sub-agent with:
-   - `agent_type: "general-purpose"`
-   - Include the full content of `~/.copilot/installed-plugins/ihudak-copilot-plugins/dt-style-guide/skills/dt-doc-fixer/SKILL.md`
+   - `agent_type: "dt-style-guide:dt-doc-fixer"`
    - Pass the violation list (filtered to fixable categories) and the file paths.
 4. After fixing, re-run dt-style-checker on the modified files to verify.
 5. Report the final state:

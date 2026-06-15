@@ -1,11 +1,7 @@
 ---
 name: code-review
-description: >
-  Post-implementation code review for SIGNIFICANT / HIGH-RISK tasks. Checks
-  correctness, security, architecture, edge cases, migration, dependencies,
-  tests, rollback. Returns PASS / PASS WITH RECOMMENDATIONS / BLOCK and gates
-  the test run. Pinned to Opus by the caller. Invoked by impl:, fix-vuln:,
-  and upgrade: orchestrators — NOT triggered by direct user prompts.
+description: "Post-implementation code review for SIGNIFICANT / HIGH-RISK tasks. Checks correctness, security, architecture, edge cases, migration, dependencies, tests, rollback. Returns PASS / PASS WITH RECOMMENDATIONS / BLOCK and gates the test run. Pinned to Opus by the caller. Invoked by impl:, fix-vuln:, and upgrade: orchestrators — NOT triggered by direct user prompts."
+tools: [view, grep, glob, bash]
 ---
 
 # code-review — Opus Code Review Gate

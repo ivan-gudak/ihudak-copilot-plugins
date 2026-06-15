@@ -1,10 +1,7 @@
 ---
 name: dt-doc-fixer
-description: >
-  Applies safe, mechanical fixes for Dynatrace style guide violations found by
-  dt-style-checker. Handles terminology swaps, banned-word replacements, and
-  formatting corrections. Skips ambiguous fixes that need human judgment. Reports
-  what was fixed and what was left for manual review.
+description: "Applies safe, mechanical fixes for Dynatrace style guide violations found by dt-style-checker. Handles terminology swaps, banned-word replacements, and formatting corrections. Skips ambiguous fixes that need human judgment. Reports what was fixed and what was left for manual review."
+tools: [view, grep, glob, bash, edit, create]
 ---
 
 # Fix Dynatrace style guide violations

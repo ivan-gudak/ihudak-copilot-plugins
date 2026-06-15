@@ -62,8 +62,8 @@ include it verbatim in the Phase 5 final report under `### Model Routing`.
 - **SIMPLE / MODERATE** — proceed to Phase 1 normally. No mandatory Opus steps.
 - **SIGNIFICANT / HIGH-RISK** —
   - **Phase 2 plan** is produced normally, then **critiqued by an Opus
-    sub-agent** (`task` with `agent_type: "risk-planner"`, `model:
-    claude-opus-4.7` or the highest available per `_shared/model-routing.md`
+    sub-agent** (`task` with `agent_type: "dev-workflows:risk-planner"`, `model:
+    claude-opus-4.8` or the highest available per `_shared/model-routing.md`
     §2). Address every BLOCKER and document every CONCERN before requesting
     user approval.
   - **Phase 3** implementation proceeds with the current model or Sonnet — no
@@ -190,7 +190,7 @@ used in Phase 3.8 to detect regressions introduced during implementation.
 1. Invoke the `test-baseliner` sub-agent in `capture` mode:
    ```
    task(
-     agent_type: "test-baseliner",
+     agent_type: "dev-workflows:test-baseliner",
      mode:       "sync",
      description:"Test baseline capture (pre-impl)",
      prompt:     "## Test Baseline Request\nrepo: <absolute-repo-root>\nmode: capture\n<model_routing block>"
@@ -249,8 +249,8 @@ Mandatory gate **before** tests are run for SIGNIFICANT / HIGH-RISK tasks.
 2. Invoke the review sub-agent:
    ```
    task(
-     agent_type: "code-review",          # fall back to "general-purpose" if unavailable
-     model:      "claude-opus-4.7",      # or highest available per _shared/model-routing.md §2
+     agent_type: "dev-workflows:code-review",          # fall back to "general-purpose" if unavailable
+     model:      "claude-opus-4.8",      # or highest available per _shared/model-routing.md §2
      description:"Opus code review (SIGNIFICANT/HIGH-RISK gate)",
      mode:       "sync",
      prompt:     "<plan summary> + <diff/changed files> +
@@ -261,7 +261,7 @@ Mandatory gate **before** tests are run for SIGNIFICANT / HIGH-RISK tasks.
 3. **Resolve every BLOCKER via `review-fixer`.** Invoke the sub-agent:
    ```
    task(
-     agent_type: "review-fixer",
+     agent_type: "dev-workflows:review-fixer",
      mode:       "sync",
      description:"Apply review fixes for impl",
      prompt:     "<plan summary> + <full review output> + project root: <absolute path>"
@@ -288,7 +288,7 @@ Mandatory for all code changes. Skip **only** if the user explicitly chose
 2. Invoke the `test-writer` sub-agent:
    ```
    task(
-     agent_type: "test-writer",
+     agent_type: "dev-workflows:test-writer",
      mode:       "sync",
      description:"Write tests for changed behaviour",
      prompt:     "<task description>
@@ -334,7 +334,7 @@ Run the full test suite and compare against the Phase 2.6 baseline.
 1. Invoke `test-baseliner` in `verify` mode, passing the Phase 2.6 baseline:
    ```
    task(
-     agent_type: "test-baseliner",
+     agent_type: "dev-workflows:test-baseliner",
      mode:       "sync",
      description:"Test verification (post-impl)",
      prompt:     "## Test Baseline Request

@@ -21,7 +21,7 @@ do not invoke any sub-agent, do not propose a plan — just print the message an
 
 ## Message to print
 
-As of plugin version **1.2.1**, `impl:` is a dispatcher — it does not run a workflow.
+As of plugin version **1.3.0**, `impl:` is a dispatcher — it does not run a workflow.
 Pick the variant that matches your task and re-run.
 
 ### `impl:*` variants

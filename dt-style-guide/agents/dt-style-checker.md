@@ -1,12 +1,7 @@
 ---
 name: dt-style-checker
-description: >
-  Checks files against the Dynatrace corporate style guide (terminology, trademarks,
-  voice/tone, grammar, formatting, accessibility). Returns violations in the same
-  schema as docs-style-checker so doc-fixer can process them. LLM-based — reads
-  vendored reference docs, not a deterministic linter. Intended as a fallback when
-  no repo-configured prose linter exists, and as the primary style checker for
-  planning documents (Epics, PRDs, ARDs).
+description: "Checks files against the Dynatrace corporate style guide (terminology, trademarks, voice/tone, grammar, formatting, accessibility). Returns violations in the same schema as docs-style-checker so doc-fixer can process them. LLM-based — reads vendored reference docs, not a deterministic linter. Intended as a fallback when no repo-configured prose linter exists, and as the primary style checker for planning documents (Epics, PRDs, ARDs)."
+tools: [view, grep, glob, bash, edit]
 ---
 
 Check files against the Dynatrace corporate style guide and return violations in the

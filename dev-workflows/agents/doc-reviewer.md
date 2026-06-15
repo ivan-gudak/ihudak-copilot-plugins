@@ -1,11 +1,7 @@
 ---
 name: doc-reviewer
-description: >
-  Receives a list of changed documentation files and performs a comprehensive review:
-  broken links, heading structure, wikilink validity, code-fence formatting, style
-  consistency, structural coherence, and completeness relative to the stated goal.
-  Returns a Doc Review Report with status OK | CONCERNS | BLOCKERS and a structured
-  findings list. Invoked by impl:docs: Phase 3.5. Never modifies files — review only.
+description: "Receives a list of changed documentation files and performs a comprehensive review: broken links, heading structure, wikilink validity, code-fence formatting, style consistency, structural coherence, and completeness relative to the stated goal. Returns a Doc Review Report with status OK | CONCERNS | BLOCKERS and a structured findings list. Invoked by impl:docs: Phase 3.5. Never modifies files — review only."
+tools: [view, grep, glob, bash]
 ---
 
 # `doc-reviewer` — Documentation Review Sub-Agent

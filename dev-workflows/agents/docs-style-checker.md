@@ -1,11 +1,7 @@
 ---
 name: docs-style-checker
-description: >
-  Runs the docs repo's project-configured prose linter on files written by
-  impl:jira:docs: Phase 6 and returns violations in the doc-reviewer / doc-fixer
-  finding schema. Detects tooling (Vale, project lint script, markdownlint,
-  remark) from the repo; does not embed any specific style guide. Inherits the
-  session's model.
+description: "Runs the docs repo's project-configured prose linter on files written by impl:jira:docs: Phase 6 and returns violations in the doc-reviewer / doc-fixer finding schema. Detects tooling (Vale, project lint script, markdownlint, remark) from the repo; does not embed any specific style guide. Inherits the session's model."
+tools: [view, grep, glob, bash, edit]
 ---
 
 # docs-style-checker — Prose Linter Wrapper
@@ -58,12 +54,11 @@ Refuse to run without `repo_root` and at least one entry in `files`.
    `NOT_CONFIGURED`, check if the `dt-style-guide` plugin is installed:
 
    ```
-   Check if path exists: ~/.copilot/installed-plugins/ihudak-copilot-plugins/dt-style-guide/skills/dt-style-checker/SKILL.md
+   Check if path exists: ~/.copilot/installed-plugins/ihudak-copilot-plugins/dt-style-guide/agents/dt-style-checker.md
    ```
 
-   - **If the file exists** — invoke `dt-style-checker` as a fallback:
-     - `agent_type: "general-purpose"`
-     - Include the full content of `~/.copilot/installed-plugins/ihudak-copilot-plugins/dt-style-guide/skills/dt-style-checker/SKILL.md`
+   - **If the file exists** — invoke the `dt-style-checker` agent as a fallback:
+     - `agent_type: "dt-style-guide:dt-style-checker"`
      - Pass input block:
 
      ```yaml

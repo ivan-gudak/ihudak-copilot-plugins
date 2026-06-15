@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0 (Copilot)
+
+### Breaking changes
+- **`dt-style-checker` and `dt-doc-fixer` moved from skills to Copilot custom agents.**
+  They now live at `agents/dt-style-checker.md` and `agents/dt-doc-fixer.md`. Orchestrator
+  skills (`dt-review-pr`, `dt-review-docs`) dispatch them via
+  `task(agent_type: "dt-style-guide:<name>", ...)` instead of the previous
+  `agent_type: "general-purpose"` + "include the full SKILL.md content" pattern.
+  Bare names were never registered as Copilot agents, so the prior dispatch was
+  silently misrouting.
+- **`plugin.json` now declares `"agents": "./agents/"`** in addition to `"skills": "./skills/"`.
+- Cross-plugin: `dev-workflows` orchestrators now dispatch
+  `dt-style-guide:dt-style-checker` (e.g. as a docs-style-checker fallback) using the same
+  pattern.
+
 ## 0.2.0 (Copilot)
 
 Port from Claude Code plugin to GitHub Copilot CLI plugin format.

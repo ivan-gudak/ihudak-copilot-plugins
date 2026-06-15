@@ -1,18 +1,12 @@
 ---
 name: test-baseliner
-description: >
-  Sub-agent for capturing and comparing test suite results. Shared utility used
-  by vuln-fixer and upgrade-executor. Operates in two modes: "capture" (run the
-  test suite, record every passing test, return a baseline) and "verify" (run the
-  test suite again after a change, diff against a provided baseline, return a
-  structured regression report). Handles test command auto-detection for all
-  supported ecosystems. Invoked by other sub-agents — NOT triggered by direct
-  user prompts. Has no side effects on source or build files.
+description: "Sub-agent for capturing and comparing test suite results. Shared utility used by vuln-fixer and upgrade-executor. Operates in two modes: \"capture\" (run the test suite, record every passing test, return a baseline) and \"verify\" (run the test suite again after a change, diff against a provided baseline, return a structured regression report). Handles test command auto-detection for all supported ecosystems. Invoked by other sub-agents — NOT triggered by direct user prompts. Has no side effects on source or build files."
+tools: [view, grep, glob, bash]
 ---
 
 # test-baseliner — Test Capture & Comparison Sub-agent
 
-Read `references/handoff.md` for the exact input/output document format.
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/test-baseliner/references/handoff.md` for the exact input/output document format.
 
 ## Modes
 
@@ -29,7 +23,7 @@ Read `references/handoff.md` for the exact input/output document format.
 3. **Parse results** — extract the list of passing test identifiers and the total count.
    Use whatever format the test runner emits (see "Output parsing" below).
 
-4. **Return** — produce a `capture` result record (see `references/handoff.md`).
+4. **Return** — produce a `capture` result record (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/test-baseliner/references/handoff.md`).
 
 ### `verify` — compare after change
 
@@ -45,7 +39,7 @@ Read `references/handoff.md` for the exact input/output document format.
    - Zero regressions → `status: OK`
    - One or more regressions → `status: REGRESSIONS`
 
-5. **Return** — produce a `verify` result record (see `references/handoff.md`).
+5. **Return** — produce a `verify` result record (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/test-baseliner/references/handoff.md`).
 
 ## Command detection
 

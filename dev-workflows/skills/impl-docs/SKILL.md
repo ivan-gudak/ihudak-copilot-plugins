@@ -156,7 +156,7 @@ After all edits are complete, invoke the `doc-reviewer` sub-agent for a comprehe
 
 ```
 task(
-  agent_type: "doc-reviewer",
+  agent_type: "dev-workflows:doc-reviewer",
   mode:       "sync",
   description:"Docs review",
   prompt:     "goal: <one-sentence goal from Phase 2>
@@ -175,7 +175,7 @@ Evaluate the Doc Review Report:
 
   ```
   task(
-    agent_type: "doc-fixer",
+    agent_type: "dev-workflows:doc-fixer",
     mode:       "sync",
     description:"Fix BLOCKER findings",
     prompt:     "Task description: docs update for <repo> — <goal>

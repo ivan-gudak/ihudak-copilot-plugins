@@ -14,8 +14,8 @@ rules when writing and reviewing product documentation, planning documents
 | Component | Type | Purpose |
 |---|---|---|
 | 8 reference docs | `references/` | Vendored, distilled rules from styleguide.dynatrace.com |
-| `dt-style-checker` | sub-agent | Checks files against rules; outputs violations in the `docs-style-checker` schema |
-| `dt-doc-fixer` | sub-agent | Applies safe, mechanical fixes for violations found by dt-style-checker |
+| `dt-style-checker` | agent | Checks files against rules; outputs violations in the `docs-style-checker` schema. Dispatched via `task(agent_type: "dt-style-guide:dt-style-checker", ...)`. |
+| `dt-doc-fixer` | agent | Applies safe, mechanical fixes for violations found by dt-style-checker. Dispatched via `task(agent_type: "dt-style-guide:dt-doc-fixer", ...)`. |
 | `dt-style-rules` | skill | Writing aid — loadable by any agent producing Dynatrace content |
 | `dt-review-pr` | orchestrator | Reviews doc changes from a pull request (by PR ID or branch name) |
 | `dt-review-docs` | orchestrator | Reviews markdown files at a path; supports `--fix` for auto-correction |

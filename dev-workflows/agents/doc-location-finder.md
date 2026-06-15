@@ -1,11 +1,7 @@
 ---
 name: doc-location-finder
-description: >
-  Finds the right place(s) in a docs repository to write new or extended
-  documentation for a feature. Returns a prioritised list of write targets
-  (extend-existing, new-page-in-existing-section, new-section) with rationale.
-  Heuristic + grep work; no content written. Read-only — never modifies files.
-  Inherits the session's model.
+description: "Finds the right place(s) in a docs repository to write new or extended documentation for a feature. Returns a prioritised list of write targets (extend-existing, new-page-in-existing-section, new-section) with rationale. Heuristic + grep work; no content written. Read-only — never modifies files. Inherits the session's model."
+tools: [view, grep, glob, bash]
 ---
 
 # doc-location-finder — Write-Target Locator for Product Docs

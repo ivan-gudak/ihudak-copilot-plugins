@@ -1,17 +1,12 @@
 ---
 name: upgrade-planner
-description: >
-  Sub-agent for the upgrade: workflow. Handles Phase 1 (compatibility planning)
-  for a single component: detect the component in the repo, resolve the requested
-  target version (exact, minor, latest, lts, or bare), and verify compatibility
-  with all other components in the repo. Invoked in parallel by the upgrade
-  orchestrator — NOT triggered by direct user prompts. Returns a structured
-  upgrade plan (ready to hand off to upgrade-executor) or a conflict report.
+description: "Sub-agent for the upgrade: workflow. Handles Phase 1 (compatibility planning) for a single component: detect the component in the repo, resolve the requested target version (exact, minor, latest, lts, or bare), and verify compatibility with all other components in the repo. Invoked in parallel by the upgrade orchestrator — NOT triggered by direct user prompts. Returns a structured upgrade plan (ready to hand off to upgrade-executor) or a conflict report."
+tools: [view, grep, glob, bash, web_fetch]
 ---
 
 # upgrade-planner — Upgrade Compatibility Sub-agent
 
-Read `references/handoff.md` for the exact input/output document format.
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade-planner/references/handoff.md` for the exact input/output document format.
 Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade/references/ecosystems.md` for detection patterns and registry query commands.
 Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade/references/compatibility.md` for known compatibility constraints.
 Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade/references/lts-sources.md` when resolving `lts` targets.
@@ -39,7 +34,7 @@ Receive a single upgrade request (one component, one target spec).
    - Populate `conflict_details` and `alternatives` (ranked least-invasive first).
    - Do NOT block; return the conflict info so the orchestrator can surface it to the user.
 
-6. **Output** — Produce the plan record (see `references/handoff.md` output format).
+6. **Output** — Produce the plan record (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade-planner/references/handoff.md` output format).
 
 ## Invariants
 

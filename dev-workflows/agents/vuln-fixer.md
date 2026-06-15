@@ -1,17 +1,12 @@
 ---
 name: vuln-fixer
-description: >
-  Sub-agent for the fix-vuln / vuln: workflow. Handles the fix phase of CVE
-  remediation: capture baseline via test-baseliner, apply the minimal version
-  change produced by vuln-research, rebuild, verify tests via test-baseliner,
-  commit to a new branch, and open a PR. Invoked sequentially by the fix-vuln
-  orchestrator with a research report from vuln-research. NOT triggered by direct
-  user prompts.
+description: "Sub-agent for the fix-vuln / vuln: workflow. Handles the fix phase of CVE remediation: capture baseline via test-baseliner, apply the minimal version change produced by vuln-research, rebuild, verify tests via test-baseliner, commit to a new branch, and open a PR. Invoked sequentially by the fix-vuln orchestrator with a research report from vuln-research. NOT triggered by direct user prompts."
+tools: [view, grep, glob, bash, edit, create]
 ---
 
 # vuln-fixer — CVE Fix Sub-agent
 
-Read `references/handoff.md` for the exact input/output document format.
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/vuln-fixer/references/handoff.md` for the exact input/output document format.
 Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/fix-vuln/references/build-systems.md` for per-ecosystem update commands.
 Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/fix-vuln/SKILL.md` sections "Git Workflow" and "Handling Test Failures" for branch naming, commit message templates, and PR format.
 Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/test-baseliner/references/handoff.md` for the test-baseliner handoff format.
@@ -52,7 +47,7 @@ Receive the research report for **one CVE** with `status: READY`.
 5. **Commit & PR** — Follow the Git Workflow in `fix-vuln/SKILL.md` exactly.
    Branch name, commit message, and PR body must conform to that spec.
 
-6. **Output** — Produce the result record (see `references/handoff.md` output format).
+6. **Output** — Produce the result record (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/vuln-fixer/references/handoff.md` output format).
 
 ## Build failure
 

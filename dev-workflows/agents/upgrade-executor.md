@@ -1,17 +1,12 @@
 ---
 name: upgrade-executor
-description: >
-  Sub-agent for the upgrade: workflow. Handles Phase 2 (execution) for a single
-  component: apply the upgrade plan produced by upgrade-planner, run the build,
-  verify tests via test-baseliner, and auto-fix any test code breakage caused by
-  the new version's API changes. Invoked sequentially by the upgrade orchestrator.
-  NOT triggered by direct user prompts. Leaves all changes uncommitted on the
-  current branch.
+description: "Sub-agent for the upgrade: workflow. Handles Phase 2 (execution) for a single component: apply the upgrade plan produced by upgrade-planner, run the build, verify tests via test-baseliner, and auto-fix any test code breakage caused by the new version's API changes. Invoked sequentially by the upgrade orchestrator. NOT triggered by direct user prompts. Leaves all changes uncommitted on the current branch."
+tools: [view, grep, glob, bash, edit, create]
 ---
 
 # upgrade-executor — Upgrade Execution Sub-agent
 
-Read `references/handoff.md` for the exact input/output document format.
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade-executor/references/handoff.md` for the exact input/output document format.
 Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade/references/ecosystems.md` for per-ecosystem update commands.
 Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/test-baseliner/references/handoff.md` for the test-baseliner handoff format.
 
@@ -36,7 +31,7 @@ Receive one upgrade plan with `status: READY`.
    - `status: REGRESSIONS` → follow "Test regression" below.
    - `status: RUN_FAILED` → revert all changes, set `status: BUILD_FAILED`.
 
-4. **Output** — Produce the summary record (see `references/handoff.md`).
+4. **Output** — Produce the summary record (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade-executor/references/handoff.md`).
 
 ## Build failure
 

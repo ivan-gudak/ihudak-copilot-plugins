@@ -19,16 +19,22 @@ ihudak-copilot-plugins/
     ├── .plugin/plugin.json     ← plugin manifest (required; this exact path)
     ├── LICENSE
     ├── README.md
+    ├── agents/                 ← Copilot custom agents (one .md per agent)
+    │   └── <agent-name>.md     ← dispatched via task(agent_type: "<plugin>:<agent-name>")
     └── skills/
         ├── _shared/            ← cross-skill reference docs (not a skill itself)
         └── <skill-name>/
-            ├── SKILL.md        ← required; the skill definition
+            ├── SKILL.md        ← orchestrator skill (user-facing, slash-command trigger)
             └── references/     ← optional supporting docs read at runtime
+                                  (kept under skills/<sub-agent>/references/ for
+                                   sub-agents that used to be skills — the SKILL.md
+                                   was promoted to agents/<name>.md but the handoff
+                                   docs stayed where they were)
 ```
 
 ## Plugin manifest format
 
-`.plugin/plugin.json` is the canonical Copilot CLI manifest. The `skills` field is a **directory path**, not an array:
+`.plugin/plugin.json` is the canonical Copilot CLI manifest. The `skills` field is a **directory path**, not an array. The `agents` field (optional, plugin-level) is also a directory path:
 
 ```json
 {
@@ -40,17 +46,25 @@ ihudak-copilot-plugins/
   "repository": "https://github.com/ihudak/ihudak-copilot-plugins",
   "license": "MIT",
   "keywords": [...],
-  "skills": "./skills/"
+  "skills": "./skills/",
+  "agents": "./agents/"
 }
 ```
 
 Do **not** put `plugin.json` under `.github/plugin/` — that path is not read by the Copilot CLI.
 
-## SKILL.md format — two distinct types
+## SKILL.md vs agent .md — when to use which
 
-### Orchestrator skills
-Top-level user-facing skills. Must have `allowed-tools:` in YAML frontmatter. Triggered by a keyword the user types.
+**Skills** are user-facing slash-command triggers (e.g. `/impl:code`). They run in the
+main session context with the user's selected model. They MUST have `allowed-tools:` in
+YAML frontmatter.
 
+**Agents** are sub-routines dispatched via `task(agent_type: "<plugin>:<name>", ...)`.
+They run in their own context window, inherit the orchestrator's model by default,
+and can have a `model:` override via the `task` tool. They go in `agents/<name>.md` and
+require `name`, `description`, and `tools` in YAML frontmatter (no `allowed-tools:`).
+
+### Orchestrator skill (user-facing)
 ```yaml
 ---
 name: skill-name
@@ -60,16 +74,19 @@ allowed-tools: view, edit, create, bash, glob, grep, ask_user, sql
 ---
 ```
 
-### Sub-agent skills
-Invoked only by orchestrators via the `task` tool. Must **not** have `allowed-tools:`. No frontmatter except `name:` and `description:`.
-
+### Custom agent (dispatched via task tool)
 ```yaml
 ---
-name: sub-agent-name
-description: >
-  Receives <X> and returns <Y>. Invoked by <orchestrator>.
+name: agent-name
+description: "Receives <X> and returns <Y>. Invoked by <orchestrator> via task tool."
+tools: [view, grep, glob, bash]
 ---
 ```
+
+> Earlier versions of this marketplace defined sub-agents as skills (no `allowed-tools:`).
+> That worked only by accident — Copilot CLI's `task` tool's `agent_type` enum does not
+> accept skill names. Since `dev-workflows 1.4.0` and `dt-style-guide 0.3.0`, all
+> sub-agents live in `agents/` and are dispatched as `agent_type: "<plugin>:<name>"`.
 
 ## Path references in skill files
 
@@ -90,7 +107,7 @@ When adding a new skill that references shared content, always reference via the
 
 `skills/_shared/model-routing.md` is the **single source of truth** for:
 - Task complexity classification (`SIMPLE` / `MODERATE` / `SIGNIFICANT` / `HIGH-RISK`)
-- Model fallback chain (Opus 4.7 → 4.6 → 4.5 → Sonnet 4.6 → Sonnet 4.5)
+- Model fallback chain (Opus 4.8 → 4.7 → 4.6 → 4.5 → GPT-5.5 → Sonnet 4.6 → Sonnet 4.5 → GPT-5.4 → Gemini 3.1 Pro)
 - The 8-dimension mandatory Opus code-review checklist
 - The `model_routing` YAML block format passed between orchestrators and sub-agents
 - The `phase: verify-resume` protocol for gating tests on Opus review

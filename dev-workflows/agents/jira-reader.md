@@ -1,10 +1,7 @@
 ---
 name: jira-reader
-description: >
-  Read-only sub-agent that parses a Jira work-item export from an Obsidian vault.
-  Given a vault path and a Jira key, reads the index file, item frontmatter, descriptions,
-  and comments; extracts all PR URLs; and returns a structured YAML handoff.
-  Invoked by impl:jira: (Phase 3). Never modifies vault files.
+description: "Read-only sub-agent that parses a Jira work-item export from an Obsidian vault. Given a vault path and a Jira key, reads the index file, item frontmatter, descriptions, and comments; extracts all PR URLs; and returns a structured YAML handoff. Invoked by impl:jira: (Phase 3). Never modifies vault files."
+tools: [view, grep, glob, bash]
 ---
 
 # `jira-reader` — Jira Export Reader Sub-Agent
@@ -99,7 +96,7 @@ Read the VI description and all linked item descriptions. Extract 2–4 short bu
 
 ### Step 6 — Return handoff
 
-Return the full handoff YAML (see `references/handoff.md` for the exact schema).
+Return the full handoff YAML (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/jira-reader/references/handoff.md` for the exact schema).
 
 ---
 

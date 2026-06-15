@@ -1,12 +1,7 @@
 ---
 name: code-scanner
-description: >
-  Sub-agent for use case B (impl:jira:epics:). Given a local repo path and a set of
-  capability themes from a Value Increment, scans the filesystem with rg/glob/view to
-  classify each theme as present, partial, or absent in the repo. Produces a capability map
-  and gap summary to inform Epic writing. No PR resolution — the Epic is not yet implemented.
-  Git is used only for the optional prep step (branch switch + pull). Invoked in parallel
-  by impl:jira: (Phase 5).
+description: "Sub-agent for use case B (impl:jira:epics:). Given a local repo path and a set of capability themes from a Value Increment, scans the filesystem with rg/glob/view to classify each theme as present, partial, or absent in the repo. Produces a capability map and gap summary to inform Epic writing. No PR resolution — the Epic is not yet implemented. Git is used only for the optional prep step (branch switch + pull). Invoked in parallel by impl:jira: (Phase 5)."
+tools: [view, grep, glob, bash]
 ---
 
 # `code-scanner` — Capability Gap Analysis Sub-Agent
@@ -117,7 +112,7 @@ Based on the evidence, classify the theme:
 
 ## Output
 
-Return the structured handoff (see `references/handoff.md` for the exact schema).
+Return the structured handoff (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/code-scanner/references/handoff.md` for the exact schema).
 
 ---
 

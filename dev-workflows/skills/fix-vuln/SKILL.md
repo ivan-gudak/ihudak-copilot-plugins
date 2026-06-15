@@ -162,8 +162,8 @@ See `vuln-fixer/references/handoff.md` for the handoff format.
 2. Invoke a `code-review` sub-agent pinned to Opus:
    ```
    task(
-     agent_type: "code-review",       # fall back to "general-purpose" if unavailable
-     model:      "claude-opus-4.7",   # or highest available per _shared/model-routing.md §2
+     agent_type: "dev-workflows:code-review",       # fall back to "general-purpose" if unavailable
+     model:      "claude-opus-4.8",   # or highest available per _shared/model-routing.md §2
      description:"Opus review of CVE fix",
      mode:       "sync",
      prompt:     "<CVE summary> + <diff> +
@@ -174,7 +174,7 @@ See `vuln-fixer/references/handoff.md` for the handoff format.
 3. **Invoke `review-fixer`** to apply BLOCKER+MAJOR findings:
    ```
    task(
-     agent_type: "review-fixer",
+     agent_type: "dev-workflows:review-fixer",
      mode:       "sync",
      description:"Apply review fixes for CVE fix",
      prompt:     "<CVE summary> + <full review output> + project root: <absolute path>"
@@ -224,7 +224,7 @@ kb_context: >
 
 ```
 task(
-  agent_type: "impl-maintenance",
+  agent_type: "dev-workflows:impl-maintenance",
   mode:       "sync",
   description:"Post-CVE-fix maintenance",
   prompt:     "<handoff document above>"

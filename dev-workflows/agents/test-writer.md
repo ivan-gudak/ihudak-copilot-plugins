@@ -1,14 +1,7 @@
 ---
 name: test-writer
-description: >
-  Sub-agent for writing or updating tests for newly added or changed code.
-  Invoked by impl:code: (Phase 3.7) after implementation completes. Receives
-  the list of changed files, repo path, task description, the test command
-  detected by test-baseliner (if available), and the Phase 2.6 baseline_status.
-  Detects the test framework (or reuses the hint), reads changed source files,
-  writes meaningful deterministic tests covering new/changed behavior only
-  (not pre-existing untested code), and returns a structured Test Report.
-  Invoked by orchestrators — NOT triggered by direct user prompts.
+description: "Sub-agent for writing or updating tests for newly added or changed code. Invoked by impl:code: (Phase 3.7) after implementation completes. Receives the list of changed files, repo path, task description, the test command detected by test-baseliner (if available), and the Phase 2.6 baseline_status. Detects the test framework (or reuses the hint), reads changed source files, writes meaningful deterministic tests covering new/changed behavior only (not pre-existing untested code), and returns a structured Test Report. Invoked by orchestrators — NOT triggered by direct user prompts."
+tools: [view, grep, glob, bash, edit, create]
 ---
 
 # test-writer — Test-Writing Sub-agent

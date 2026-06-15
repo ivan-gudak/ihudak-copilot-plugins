@@ -1,10 +1,7 @@
 ---
 name: risk-planner
-description: >
-  Risk-weighted planner for SIGNIFICANT / HIGH-RISK tasks. Returns a structured
-  plan with an explicit risks section. Invoked by impl:, fix-vuln:, and upgrade:
-  orchestrators only when classification is SIGNIFICANT or HIGH-RISK. Do NOT use
-  for SIMPLE / MODERATE tasks. Pinned to Opus by the caller.
+description: "Risk-weighted planner for SIGNIFICANT / HIGH-RISK tasks. Returns a structured plan with an explicit risks section. Invoked by impl:, fix-vuln:, and upgrade: orchestrators only when classification is SIGNIFICANT or HIGH-RISK. Do NOT use for SIMPLE / MODERATE tasks. Pinned to Opus by the caller."
+tools: [view, grep, glob, bash]
 ---
 
 # risk-planner — Deep Planner for SIGNIFICANT / HIGH-RISK Tasks

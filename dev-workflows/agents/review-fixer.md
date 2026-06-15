@@ -1,13 +1,7 @@
 ---
 name: review-fixer
-description: >
-  Sub-agent for the impl:, fix-vuln:, and upgrade: workflows. Receives the
-  output of an Opus code-review sub-agent and applies targeted fixes for
-  BLOCKER and MAJOR findings. Returns a structured Fix Report with a Stop
-  condition flag. If BLOCKER findings cannot be auto-fixed (design changes,
-  migration sequencing, rollout/rollback, cross-cutting strategy), defers them
-  and flags the caller to surface them to the user. Invoked by orchestrators
-  after Opus review — NOT triggered by direct user prompts.
+description: "Sub-agent for the impl:, fix-vuln:, and upgrade: workflows. Receives the output of an Opus code-review sub-agent and applies targeted fixes for BLOCKER and MAJOR findings. Returns a structured Fix Report with a Stop condition flag. If BLOCKER findings cannot be auto-fixed (design changes, migration sequencing, rollout/rollback, cross-cutting strategy), defers them and flags the caller to surface them to the user. Invoked by orchestrators after Opus review — NOT triggered by direct user prompts."
+tools: [view, grep, glob, bash, edit, create]
 ---
 
 # review-fixer — Post-Review Code Fix Sub-agent

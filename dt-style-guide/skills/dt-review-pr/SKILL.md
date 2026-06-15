@@ -104,8 +104,7 @@ For files that exist, resolve to absolute paths.
 
 Invoke the `dt-style-checker` sub-agent with:
 
-- `agent_type: "general-purpose"`
-- Include the full content of `~/.copilot/installed-plugins/ihudak-copilot-plugins/dt-style-guide/skills/dt-style-checker/SKILL.md`
+- `agent_type: "dt-style-guide:dt-style-checker"`
 - Pass input block:
 
 ```yaml
@@ -192,8 +191,7 @@ fixes (terminology, banned words, formatting). Ambiguous cases will be skipped."
 
 If the user says yes, invoke the `dt-doc-fixer` sub-agent with:
 
-- `agent_type: "general-purpose"`
-- Include the full content of `~/.copilot/installed-plugins/ihudak-copilot-plugins/dt-style-guide/skills/dt-doc-fixer/SKILL.md`
+- `agent_type: "dt-style-guide:dt-doc-fixer"`
 - Pass the violation list and the file paths.
 
 ## Hard rules

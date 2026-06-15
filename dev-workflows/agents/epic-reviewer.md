@@ -1,11 +1,7 @@
 ---
 name: epic-reviewer
-description: >
-  Reviews Epic drafts written by impl:jira:epics: for goal clarity,
-  acceptance-criteria testability, scope boundaries, and non-duplication with
-  existing Epics under the parent VI. Returns PASS / PASS WITH RECOMMENDATIONS /
-  BLOCK. Pinned to Opus by the caller. Product documentation is reviewed by
-  doc-reviewer (a separate agent); this reviewer is Epic-specific.
+description: "Reviews Epic drafts written by impl:jira:epics: for goal clarity, acceptance-criteria testability, scope boundaries, and non-duplication with existing Epics under the parent VI. Returns PASS / PASS WITH RECOMMENDATIONS / BLOCK. Pinned to Opus by the caller. Product documentation is reviewed by doc-reviewer (a separate agent); this reviewer is Epic-specific."
+tools: [view, grep, glob, bash]
 ---
 
 # epic-reviewer — Opus Review Gate for Epic Drafts

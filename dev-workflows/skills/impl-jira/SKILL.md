@@ -259,7 +259,7 @@ Produce a written plan containing:
 9. **Model routing block**
 
 If classification is SIGNIFICANT: run a `risk-planner` sub-agent critique at this point
-(use `task` with `agent_type: "risk-planner"`, `model: claude-opus-4.7` per model-routing.md).
+(use `task` with `agent_type: "dev-workflows:risk-planner"`, `model: claude-opus-4.8` per model-routing.md).
 Address every BLOCKER. Document CONCERNs in the plan. Then show the revised plan.
 
 Request approval:
@@ -282,8 +282,8 @@ ask_user(
 
 Invoke `jira-reader` sub-agent via `task`:
 
-- `agent_type: "general-purpose"`
-- Prompt: include the full `jira-reader` SKILL.md content and the input block:
+- `agent_type: "dev-workflows:jira-reader"`
+- Prompt: pass the input block:
 
 ```yaml
 vault_path: <resolved>
@@ -293,7 +293,7 @@ depth:      full           # use case A
 model_routing: <block>
 ```
 
-Read the handoff from `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/jira-reader/references/handoff.md` for the expected schema.
+The agent loads its own handoff schema; see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/jira-reader/references/handoff.md` for reference.
 
 If `jira-reader` returns `status: NOT_FOUND` or `EMPTY` → escalate to user (ask to re-enter key or cancel).
 
@@ -336,9 +336,7 @@ Launch all sub-agent instances in a **single response** (multiple `task()` calls
 
 For each validated repo with at least one in-scope PR, launch one `diff-summarizer` task:
 
-- `agent_type: "general-purpose"`
-- Include the full content of `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/diff-summarizer/SKILL.md`
-- Include the handoff schema from `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/diff-summarizer/references/handoff.md`
+- `agent_type: "dev-workflows:diff-summarizer"`
 - Pass the input block:
 
 ```yaml
@@ -361,9 +359,7 @@ model_routing: <block>
 
 For each user-selected repo, launch one `code-scanner` task:
 
-- `agent_type: "general-purpose"`
-- Include full content of `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/code-scanner/SKILL.md`
-- Include schema from `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/code-scanner/references/handoff.md`
+- `agent_type: "dev-workflows:code-scanner"`
 - Pass input block:
 
 ```yaml
@@ -475,8 +471,7 @@ Skip this phase for use case B (Epics always write to `<cwd>/<JIRA_KEY>/<slug>.m
 
 Invoke `doc-location-finder` sub-agent:
 
-- `agent_type: "general-purpose"`
-- Include the full content of `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/doc-location-finder/SKILL.md`
+- `agent_type: "dev-workflows:doc-location-finder"`
 - Pass input block:
 
 ```yaml
@@ -520,8 +515,7 @@ Skip this phase for use case B.
 
 Invoke `doc-planner` sub-agent:
 
-- `agent_type: "general-purpose"`
-- Include the full content of `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/doc-planner/SKILL.md`
+- `agent_type: "dev-workflows:doc-planner"`
 - Pass input block:
 
 ```yaml
@@ -667,8 +661,7 @@ Create `<cwd>/<JIRA_KEY>/` directory if not present.
 
 Invoke `docs-style-checker` on the files written in Phase 6:
 
-- `agent_type: "general-purpose"`
-- Include the full content of `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/docs-style-checker/SKILL.md`
+- `agent_type: "dev-workflows:docs-style-checker"`
 - Pass input block:
 
 ```yaml
@@ -686,8 +679,7 @@ Act on the return:
 - **`status: OK`** — linter ran, zero violations. Proceed to Phase 7.
 - **`status: VIOLATIONS_FOUND`** — invoke `doc-fixer` sub-agent:
 
-  - `agent_type: "general-purpose"`
-  - Include the full content of `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/doc-fixer/SKILL.md`
+  - `agent_type: "dev-workflows:doc-fixer"`
   - Pass input block:
 
   ```
@@ -719,13 +711,12 @@ For Epics (vault content), `docs-style-checker` is skipped (no repo linter for
 vault content). Instead, check if the `dt-style-guide` plugin is installed:
 
 ```
-Check if path exists: ~/.copilot/installed-plugins/ihudak-copilot-plugins/dt-style-guide/skills/dt-style-checker/SKILL.md
+Check if path exists: ~/.copilot/installed-plugins/ihudak-copilot-plugins/dt-style-guide/agents/dt-style-checker.md
 ```
 
 **If installed** — invoke `dt-style-checker` directly:
 
-- `agent_type: "general-purpose"`
-- Include the full content of `~/.copilot/installed-plugins/ihudak-copilot-plugins/dt-style-guide/skills/dt-style-checker/SKILL.md`
+- `agent_type: "dt-style-guide:dt-style-checker"`
 - Pass input block:
 
 ```yaml
@@ -763,8 +754,7 @@ Act on the return:
 
 Invoke `doc-reviewer` sub-agent:
 
-- `agent_type: "general-purpose"`
-- Include full content of `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/doc-reviewer/SKILL.md`
+- `agent_type: "dev-workflows:doc-reviewer"`
 - Pass the output file(s) written in Phase 6, the stated goal, the repo path (cwd), and the `model_routing` block
 - Additionally pass: the `doc-planner` checklist (Phase 5.7), `diff-summarizer` outputs (Phase 5), and the style-check report (Phase 6.7 output, or `status: NOT_CONFIGURED` if no linter ran)
 
@@ -775,8 +765,7 @@ Act on the verdict:
 - **`status: BLOCKERS`** or **PASS WITH RECOMMENDATIONS** containing MAJOR findings:
 
   1. Invoke `doc-fixer` sub-agent:
-     - `agent_type: "general-purpose"`
-     - Include the full content of `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/doc-fixer/SKILL.md`
+     - `agent_type: "dev-workflows:doc-fixer"`
      - Pass input block:
 
      ```
@@ -806,8 +795,7 @@ Act on the verdict:
 
 Invoke `epic-reviewer` sub-agent (Opus-pinned):
 
-- `agent_type: "general-purpose"`, `model: claude-opus-4.7`
-- Include the full content of `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/epic-reviewer/SKILL.md`
+- `agent_type: "dev-workflows:epic-reviewer"`, `model: claude-opus-4.8`
 - Pass input block:
 
 ```yaml
@@ -843,8 +831,7 @@ Act on the verdict (same escalation pattern as use case A):
 
 Invoke `impl-maintenance` sub-agent:
 
-- `agent_type: "general-purpose"`
-- Include the full content of `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/impl-maintenance/SKILL.md`
+- `agent_type: "dev-workflows:impl-maintenance"`
 - Pass a compact handoff:
 
 ```markdown

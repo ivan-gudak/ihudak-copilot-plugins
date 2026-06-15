@@ -1,11 +1,7 @@
 ---
 name: diff-summarizer
-description: >
-  Sub-agent for use case A (impl:jira:docs:). Given a local git clone path and one or more
-  Bitbucket/GitHub PR identifiers, resolves each PR against local refs using four strategies
-  (PR ref, branch search, merge-commit search, issue-key grep), produces a prose diff summary
-  per PR, and returns an aggregate per-repo summary. All resolution is pure local git — no
-  HTTPS calls, no Bitbucket REST API, no gh CLI. Invoked in parallel by impl:jira: (Phase 5).
+description: "Sub-agent for use case A (impl:jira:docs:). Given a local git clone path and one or more Bitbucket/GitHub PR identifiers, resolves each PR against local refs using four strategies (PR ref, branch search, merge-commit search, issue-key grep), produces a prose diff summary per PR, and returns an aggregate per-repo summary. All resolution is pure local git — no HTTPS calls, no Bitbucket REST API, no gh CLI. Invoked in parallel by impl:jira: (Phase 5)."
+tools: [view, grep, glob, bash]
 ---
 
 # `diff-summarizer` — PR Diff Summary Sub-Agent
@@ -152,7 +148,7 @@ Write 1–2 paragraphs summarising this repo's contribution to the feature:
 
 ## Output
 
-Return the structured handoff (see `references/handoff.md` for the exact schema).
+Return the structured handoff (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/diff-summarizer/references/handoff.md` for the exact schema).
 
 ---
 
