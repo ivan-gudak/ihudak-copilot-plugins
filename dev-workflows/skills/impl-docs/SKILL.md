@@ -187,11 +187,13 @@ Apply the approved doc changes:
 
 ## Phase 3.4 — Style Check (added v1.7.0 — MANDATORY)
 
-> **Hard rule:** Phase 3.4 MUST run. Some check is better than no check.
-> The `docs-style-checker` sub-agent owns linter detection AND the
-> `dt-style-checker` fallback when the primary linter errors out. Never
-> skip on the basis of "I think Vale isn't installed" — let the sub-agent
-> figure it out.
+> **Hard rule (v1.7.0; expanded v1.8.2):** Phase 3.4 MUST run. Some check is
+> better than no check. The `docs-style-checker` sub-agent owns linter
+> detection AND the chained `dt-style-checker` complementary pass (v1.8.2+):
+> when Vale (or another primary linter) runs successfully, `dt-style-checker`
+> ALSO runs as a complementary semantic-consistency pass and findings are
+> merged + deduped. Never skip on the basis of "I think Vale isn't installed" —
+> let the sub-agent figure it out.
 
 Invoke `docs-style-checker` on the files changed in Phase 3:
 

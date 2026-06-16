@@ -1015,15 +1015,18 @@ Create `<cwd>/<JIRA_KEY>/` directory if not present.
 
 ## Phase 6.7 — Style Check (before reviewer) — MANDATORY
 
-> **Hard rule (added v1.7.0):** Phase 6.7 MUST run. The orchestrator MUST
-> NOT skip the style check based on its own knowledge of which linters are
-> installed. The `docs-style-checker` sub-agent owns linter detection AND
-> the dt-style-checker fallback when the primary linter errors out. The
-> orchestrator's job is to dispatch it and act on the return.
+> **Hard rule (added v1.7.0; expanded v1.8.2):** Phase 6.7 MUST run. The
+> orchestrator MUST NOT skip the style check based on its own knowledge of
+> which linters are installed. The `docs-style-checker` sub-agent owns linter
+> detection AND the chained `dt-style-checker` complementary pass (v1.8.2+).
+> The orchestrator's job is to dispatch it and act on the return.
 >
 > "Some check is better than no check." Even when Vale is missing,
 > `docs-style-checker` falls back to `dt-style-checker` from the
-> `dt-style-guide` plugin (when installed). The orchestrator never skips.
+> `dt-style-guide` plugin (when installed). When Vale is available,
+> `dt-style-checker` ALSO runs as a complementary semantic / cross-page
+> consistency pass and the two finding sets are merged + deduped.
+> The orchestrator never skips.
 
 ### Use case A — docs-style-checker
 
@@ -1037,7 +1040,9 @@ repo_root: <absolute path to the docs repo root — NOT cwd's git root; pass exp
 files:     <absolute paths of every file written or modified in Phase 6>
 ```
 
-Act on the return:
+Act on the return (output schema as of v1.8.2 — fields:
+`status`, `primary_linter`, `primary_command`, `complementary_linter`,
+`complementary_command`, `violations[]`, `error`, `complementary_error`):
 
 - **`status: NOT_CONFIGURED`** — no repo linter AND no `dt-style-checker`
   available. The agent has already exhausted both the primary detection
@@ -1045,7 +1050,9 @@ Act on the return:
   Proceed to Phase 7. `doc-reviewer` is the only style/correctness gate.
   Record this as a known gap in the Phase 9 report so the user knows no
   prose linter ran.
-- **`status: OK`** — linter ran, zero violations. Proceed to Phase 7.
+- **`status: OK`** — at least one pass ran, zero violations after merge.
+  Proceed to Phase 7. If `complementary_error` is set, note in the Phase 9
+  report (the primary pass covered).
 - **`status: VIOLATIONS_FOUND`** — invoke `doc-fixer` sub-agent:
 
   - `agent_type: "dev-workflows:doc-fixer"`
@@ -1066,9 +1073,6 @@ Act on the return:
   )
   ```
 
-- **`status: ERROR`** — surface the error reason:
-  ```
-  ask_user(
 - **`status: ERROR`** — only reached when BOTH the primary linter AND the
   `dt-style-checker` fallback failed. Surface the error reason and proceed
   to Phase 7 (doc-reviewer is the safety net):

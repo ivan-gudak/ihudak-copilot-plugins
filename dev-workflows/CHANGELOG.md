@@ -4,6 +4,50 @@ All notable changes to the **dev-workflows** plugin are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow semver at the plugin level.
 
+## [1.8.2] — 2026-06-16
+
+### Changed
+- **`docs-style-checker` — Vale + `dt-style-checker` now run as a
+  COMPLEMENTARY chain, not a fallback-only relationship.** Empirical
+  verification on the PRODUCT-14902 docs run showed the two checkers
+  catch different classes of issue:
+
+    | Class of finding | Vale catches | `dt-style-checker` catches |
+    |---|---|---|
+    | Lexical (banned words, contractions, hyphens) | ✅ at scale | partial |
+    | Frontmatter completeness (`navigation:`, title length) | ✅ | ❌ |
+    | Engineer jargon (`latest-minus-one`, `LTS-1`) | ❌ no rule | ✅ |
+    | Cross-page label consistency | ❌ | ✅ |
+    | Subject-verb agreement, misplaced modifier | ❌ | ✅ |
+    | Plural/singular UI-label mismatch | ❌ | ✅ |
+
+  Running ONLY the primary linter misses the semantic / cross-page class.
+  As of v1.8.2, when Vale (or another primary linter) runs successfully,
+  `dt-style-checker` ALSO runs as a complementary semantic pass; both
+  finding sets are merged with line-level dedupe. When the primary linter
+  fails, `dt-style-checker` continues to serve as the fallback (v1.7.0
+  behaviour preserved). When the `dt-style-guide` plugin isn't installed,
+  the chain degrades cleanly to the primary pass only.
+- **`docs-style-checker` output schema v3.** Old fields (`linter`,
+  `command`) are renamed to `primary_linter` / `primary_command` and new
+  fields are added: `complementary_linter`, `complementary_command`,
+  `complementary_error`. Each violation record now carries a `source:`
+  field (`primary` | `complementary`) for traceability. Callers that
+  parsed the old schema by string-matching `linter:` need to update.
+- **`impl-jira` Phase 6.7 and `impl-docs` Phase 3.4 hard-rule text
+  expanded** to describe the chained behaviour. Removed a stale
+  duplicate `ERROR` heading block in `impl-jira/SKILL.md` that was
+  introduced during the v1.7.0 edit.
+
+### Fixed
+- **Bug discovered during PRODUCT-14902 Vale-verification round:** when
+  Vale was available, `dt-style-checker` was completely skipped — even
+  though it catches semantic / cross-page issues Vale doesn't have rules
+  for (the v1.7.0 rationale of "fallback only" was based on the wrong
+  assumption that Vale was a superset). The chain now ensures
+  high-confidence semantic findings (jargon, UI-label consistency,
+  subject-verb agreement) are not silently dropped when Vale exists.
+
 ## [1.8.1] — 2026-06-16
 
 ### Fixed
