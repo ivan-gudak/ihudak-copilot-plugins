@@ -41,6 +41,12 @@ For each write target:
    Not every target needs every topic. For `extend-existing`, pick only the
    topics the existing page doesn't already cover.
 
+   > **Note:** the standalone *release notes draft* (separate from doc pages
+   > that describe the feature) is NOT one of these topics. It is emitted
+   > once for the whole VI under the top-level `release_notes_block` field —
+   > see step 9 below. Do NOT add release-notes entries to the
+   > `topics:` list of any individual write target.
+
 2. **Map topics to sources.** Each topic records which `jira-reader` keys
    and/or which `diff-summarizer` PR URLs back it up, for the Phase 6 writer's
    traceability requirement. A topic with no source attribution is a candidate
@@ -124,6 +130,54 @@ For each write target:
    - `"skip with note in final report"` — the gap is recorded in the final
      `### Skipped items` section.
 
+9. **Plan the release-notes draft (when applicable).** Inspect the
+   `value_increment.frontmatter` from the `jira_reader_handoff`:
+
+   - If `relevant_for_release_notes` is `"Yes"` **or** `release_versions` is a
+     non-empty string, build a `release_notes_block` with one entry per
+     declared release version (e.g. `Managed (344)` and `SaaS (344)` from
+     `"Managed (344), SaaS (344)"` produce two entries).
+   - If neither field indicates release-notes-worthiness, set
+     `release_notes_block: null` and skip this step.
+
+   For each entry, plan the standard dynatrace-docs feature-update layout:
+
+   ```handlebars
+   {{#context}}<context label>{{/context}}
+
+   ### <Feature title>
+
+   {{#internal-note author='<reporter login or "tbd"'>}}
+   * **Ticket**: [<jira-url>](<jira-url>)
+   * **Assignee**: [<assignee>](https://teams.internal.dynatrace.com/employees/<id>),
+     **reporter**: [<reporter>](...), **PE**: [<execution_assignee>](...)
+   * **Status**: <status>
+   * **Release versions**: <release-versions string>
+   {{/internal-note}}
+
+   <2-4 sentence user-facing prose paragraph>
+   ```
+
+   The actual values come from `value_increment.frontmatter` (or, when
+   missing, the corresponding fields on the VI's main item; never the
+   epic-children unless the user explicitly asks for per-Epic release notes).
+
+   - **Context label** — propose 1–2 short labels (pipe-separated when 2,
+     e.g. `Platform | Settings`) inferred from VI summary keywords; mark as a
+     gap (`recommended_action: ask user`) if confidence is low.
+   - **Feature title** — short, 5–10 words, in the form of a release-note
+     headline (no leading "New feature:", no period, sentence case).
+   - **Prose paragraph** — 2–4 sentences for end users. Cite source Jira keys
+     by `[[KEY]]`; do not include Bitbucket PR links inside release notes
+     (release notes are user-facing and should reference the public Jira
+     ticket only).
+   - **Citations** — add `sources: [<VI key>, ...]` on the entry so the
+     writer can cite, but the rendered prose should NOT contain inline PR
+     links.
+
+   Set `release_notes_block.target_format: dynatrace-docs-release-notes-v1`
+   so consumers can recognise the schema.
+
 ## Output — the documentation checklist
 
 ```yaml
@@ -152,6 +206,38 @@ checklist:
     cross_links:
       from:  [<page paths that should link here>]
       to:    [<page paths this should link out to>]
+
+release_notes_block:                # null when not applicable
+  target_format: dynatrace-docs-release-notes-v1
+  vi_key:        <VI Jira key, e.g. PRODUCT-14902>
+  entries:
+    - release_version: <e.g. "Managed (344)" — one entry per declared version>
+      context_label:   <e.g. "Platform" or "Platform | Settings">
+      title:           <5–10 word headline, sentence case, no period>
+      jira_url:        <full Jira URL of the VI>
+      assignee:        <text | null>
+      reporter:        <text | null>
+      execution_assignee: <text | null>
+      status:          <text from VI frontmatter, e.g. "Implementation">
+      release_versions_text: <full string from frontmatter, e.g. "Managed (344), SaaS (344)">
+      prose: |
+        <2–4 sentence user-facing paragraph; sentences end with a period;
+         no Bitbucket PR links inside release notes>
+      sources:         [<VI key>, ...]   # for traceability; NOT rendered as inline links
+  rendered_template: |    # exact handlebars-style output the writer emits per entry
+    {{#context}}<context_label>{{/context}}
+
+    ### <title>
+
+    {{#internal-note author='<reporter or "tbd">'}}
+    * **Ticket**: [<jira_url>](<jira_url>)
+    * **Assignee**: <assignee>, **reporter**: <reporter>, **PE**: <execution_assignee>
+    * **Status**: <status>
+    * **Release versions**: <release_versions_text>
+    {{/internal-note}}
+
+    <prose>
+
 gaps:
   - description: <what's missing from inputs>
     recommended_action: <"ask user" | "mark TODO in draft" |
@@ -177,5 +263,15 @@ least one target — the caller must surface those to the user before approval.
   Jira key in the `jira_reader_handoff` or a PR URL in `diff_summaries`.
 - NEVER decide a topic is "done" without naming at least one source. If a topic
   has no source, it is a gap.
+- NEVER include a release-notes snippet path (e.g.
+  `<repo_root>/_snippets/release-notes/...`) as a `target_path` in the
+  `checklist`. Release notes are emitted via the top-level
+  `release_notes_block` and written to a destination outside the docs repo by
+  the orchestrator (see `impl-jira` Phase 6 for the destination policy).
+- NEVER include Bitbucket / GitHub / GitLab PR URLs inside a release-notes
+  entry's `prose` field. Release notes are user-facing; only the public Jira
+  URL is acceptable inside the rendered text. PR URLs may appear in the
+  surrounding `sources:` list (which is for traceability only and is NOT
+  rendered).
 - If `repo_root` looks wrong (no markdown files, no frontmatter conventions),
   note it in `gaps` with `recommended_action: "ask user"`.

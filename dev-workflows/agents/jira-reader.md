@@ -55,13 +55,21 @@ Also note the `<jira_key>` itself as the root item.
 
 **If `depth: vi-only`:**
 - Read only `<vault_path>/jira-products/<jira_key>/<jira_key>/<jira_key>.md`
-- Parse frontmatter and description. Extract PR URLs.
+- Parse frontmatter (full dict — see below) and description. Extract PR URLs.
 
 **If `depth: full`:**
 - For every item in the index (plus the root VI itself), attempt to read:
   - `<vault_path>/jira-products/<jira_key>/<ITEM_KEY>/<ITEM_KEY>.md` (main file)
   - `<vault_path>/jira-products/<jira_key>/<ITEM_KEY>/<ITEM_KEY>-comments.md` (if present)
-- For each main file: parse YAML frontmatter fields (`key`, `issue_type`, `status`, `summary`, `parent`, `team`, `fix_versions`, `resolution`, and any others present). Extract the Description section body.
+- For each main file: parse the **full YAML frontmatter as a dict** and emit it
+  on the item under `frontmatter:`. Always populate (when present in the file)
+  these fields explicitly so downstream agents can rely on them: `key`,
+  `issue_type`, `summary`, `status`, `assignee`, `reporter`, `execution_assignee`,
+  `team`, `project`, `parent`, `rank`, `fix_versions`, `release_versions`,
+  `relevant_for_release_notes`, `owning_program`, `labels`, `resolution`. Any
+  additional frontmatter fields are passed through verbatim under
+  `frontmatter:` (no whitelist — surface everything the file declares).
+  Extract the Description section body.
 - If a file is absent, skip gracefully — record `not_found: true` on that item.
 
 ### Step 4 — Extract PR URLs
@@ -87,6 +95,16 @@ For each URL found:
 - Parse `status` from the inline marker after the URL: `**MERGED**` → `MERGED`, `**OPEN**` → `OPEN`, `**DECLINED**` → `DECLINED`; if no marker → `UNKNOWN`
 - Parse `title` from the link text
 - Record `source_item` as the Jira key of the file where the URL was found
+- **Branch hint extraction (optional but recommended).** Some Jira exports include
+  a sub-bullet directly after the PR link like:
+  ```
+  - [PR title](URL) **MERGED**
+    - Branch: `feature/MGD-1127-handle-windows` → `master`
+  ```
+  When present, parse the source branch (between backticks before the arrow) and
+  the target branch (between backticks after the arrow). Expose them as
+  `branch_hint: <source-branch>` and `target_branch_hint: <target-branch>` on
+  the PR record. If absent, omit both fields. The arrow may be `→` or `->`.
 
 De-duplicate by `(host, project, repo, pr_id)`. If the same PR appears in multiple items, keep the first occurrence's `source_item` and append a `also_in: [<keys>]` list.
 

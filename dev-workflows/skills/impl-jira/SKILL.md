@@ -7,7 +7,7 @@ description: >
   calls), runs parallel diff-summarizers (use case A — feature docs) or code-scanners
   (use case B — epic writing), synthesises documentation with inline Jira + PR citations,
   gates on doc-reviewer, and runs impl-maintenance. All PR resolution is pure local git
-  on analysis-only clones under /repos/.
+  on analysis-only clones under `$REPOS_PATH` (default `/workspace`).
 allowed-tools: view, edit, create, bash, glob, grep, ask_user, sql
 ---
 
@@ -17,7 +17,9 @@ Activated when the user prompt starts with `impl:jira:`, `impl:jira:docs:`, or `
 
 > **No external API calls, ever.** PR URLs from Jira exports are identifiers only.
 > Do NOT use `gh`, `curl`, Bitbucket REST API, or any HTTPS fetch against Bitbucket.
-> All PR resolution is via local `git` on pre-cloned repos under `/repos/`.
+> All PR resolution is via local `git` on pre-cloned repos under `$REPOS_PATH`
+> (default `/workspace`; override via the `REPOS_PATH` environment variable —
+> may be a colon-separated list of directories).
 
 > **Model routing is mandatory.** Load
 > `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/model-routing.md`
@@ -191,7 +193,7 @@ ask_user(
 
 ```
 ask_user(
-  question: "Should I scan existing code in /repos/ to identify reusable components and gaps?",
+  question: "Should I scan existing code under $REPOS_PATH (default /workspace) to identify reusable components and gaps?",
   choices: [
     "Yes — scan code (Recommended)",
     "No — write epics from Jira context only",
@@ -204,7 +206,7 @@ If code scan ON:
 
 ```
 ask_user(
-  question: "Which repos under /repos/ should I scan?",
+  question: "Which repos under $REPOS_PATH should I scan?",
   choices: [
     "<repo1 derived from sibling epic refs if available> (Recommended)",
     "List repos manually",
@@ -219,7 +221,7 @@ Use case A default: `fetch only`. Use case B default: `fetch + pull default bran
 
 ```
 ask_user(
-  question: "How should I refresh the local repo clones under /repos/?",
+  question: "How should I refresh the local repo clones under $REPOS_PATH?",
   choices: [
     "Fetch only — update remote refs, don't change branches (Recommended for docs)",
     "Fetch + pull default branch — ensure latest code",
@@ -242,6 +244,43 @@ ask_user(
 )
 ```
 
+**Q6 — Release-notes destination** (use case A only; ask if any of the
+following are true on `value_increment.frontmatter`:
+`relevant_for_release_notes == "Yes"` OR `release_versions` is a non-empty
+string):
+
+The release notes draft is **separate** from the doc page(s). It is NOT
+written into the docs repo (`/workspace/dynatrace-docs/` or wherever) — that
+path is owned by Jira-driven automation, and writing there manually risks
+being overwritten. The default destination is the matching project tracking
+folder in the Obsidian vault.
+
+**Auto-discover** the project folder by globbing
+`<vault>/Projects/Products/**/<JIRA_KEY>*` and picking the first match. If
+multiple, list them and pick the alphabetically-first.
+
+```
+ask_user(
+  question: "Where should the release-notes draft go? (Default: write to <auto-discovered path>/<JIRA_KEY>-release-notes.md so you can paste into Jira; Jira automation re-emits to the docs repo.)",
+  choices: [
+    "Use default: <auto-discovered path>/<JIRA_KEY>-release-notes.md (Recommended)",
+    "Specify a custom absolute path",
+    "Output to screen only — don't write a file",
+    "Skip release notes entirely",
+    "Other… (describe)"
+  ]
+)
+```
+
+If the default could not be auto-discovered (no matching dir), drop the first
+choice and add a note: "no `<JIRA_KEY>*` folder found under
+`<vault>/Projects/Products/`".
+
+Record the choice as `release_notes_destination`:
+- `"file:<absolute path>"` — write to that file
+- `"stdout"` — print to the chat at Phase 6
+- `"skip"` — do not generate release notes
+
 ---
 
 ## Phase 2 — Plan + Approval
@@ -252,7 +291,9 @@ Produce a written plan containing:
 2. **Jira key** and VI summary
 3. **Vault path** and export directory
 4. **PRs in scope** (use case A): list of `(url, repo, pr_id, status)`
-5. **Repos to process**: list of `/repos/<REPO>/` paths and whether each exists
+5. **Repos to process**: for each in-scope repo URL slug, list its resolved
+   absolute `repo_path` under `$REPOS_PATH` and whether it was uniquely
+   resolved or has multiple candidates (with the auto-preferred one marked).
 6. **Output file(s)**: resolved absolute path(s)
 7. **Detected context**: `obsidian` / `git_repo` / `plain_dir`; whether branch will be created
 8. **Parallelism plan**: N diff-summarizer or code-scanner instances to be launched
@@ -301,27 +342,93 @@ Filter `pull_requests` list by the user's PR status selection from Phase 1.
 
 ---
 
-## Phase 4 — Validate Repos
+## Phase 4 — Resolve & Validate Repos
 
-For each unique `(repo)` from the in-scope PR list (use case A) or user-selected repo list (use case B):
+The orchestrator translates each unique repo URL slug from the in-scope PR list
+(use case A) or user-selected repo list (use case B) into an **absolute local
+clone path** before invoking sub-agents. Sub-agents do NOT search the
+filesystem — they only operate on `repo_path` arguments the orchestrator gives
+them.
 
-1. Check that `/repos/<repo>/` exists: `bash -c '[ -d "/repos/<repo>" ] && echo exists || echo missing'`
-2. If missing:
+### Step 4.1 — Determine the repos search base
+
+```bash
+echo "${REPOS_PATH:-/workspace}"
+```
+
+The default base is `/workspace`. Override via the `REPOS_PATH` environment
+variable when repos live elsewhere. `REPOS_PATH` may be a single directory
+or a colon-separated list (e.g. `/workspace:/repos:/home/me/projects`).
+
+### Step 4.2 — Build the URL-slug → local-path map
+
+For each candidate top-level directory under each entry of `REPOS_PATH`:
+
+```bash
+# Per candidate dir
+timeout 5 git -C "<dir>" remote get-url origin 2>/dev/null
+```
+
+Strip any trailing `.git` from the URL and take the last path segment — that is
+the candidate's URL slug. Build a multimap: `<slug> → [<absolute path>, ...]`.
+
+Skip directories without a `.git` folder. Skip directories whose `git remote`
+call fails or times out (5s ceiling).
+
+### Step 4.3 — Resolve each in-scope repo slug
+
+For each unique `<slug>` from `pull_requests[].repo` (use case A) or the
+user-selected repo list (use case B):
+
+1. Look up `<slug>` in the multimap from Step 4.2.
+2. **Zero matches** — fall through to escalation (Step 4.4).
+3. **One match** — use it directly.
+4. **Multiple matches** (e.g. both `cluster` and `cluster-repo` exist for the
+   same upstream) — apply the preference order:
+   - Prefer the path whose basename ends in `-repo` over a bare-slug basename
+     (the user's convention is that `<slug>-repo` is a fast/native-volume copy).
+   - Then prefer the path whose basename ends in `_repo` or `_fast`.
+   - Then choose the alphabetically-last basename (deterministic tie-break).
+   Display **all** candidates in the plan and let the user override at Phase 2.
+
+### Step 4.4 — Escalation prompts
+
+If a slug resolved to **zero** local paths:
 
 ```
 ask_user(
-  question: "Repo /repos/<repo>/ is not found locally. How would you like to proceed?",
+  question: "No local clone of repo '<slug>' was found under <REPOS_PATH>. How would you like to proceed?",
   choices: [
     "Skip this repo and continue without its PRs",
     "I'll clone it now — wait for me",
     "Cancel the run",
-    "Use a different /repos path",
+    "Specify a different absolute path for this repo",
     "Other… (describe)"
   ]
 )
 ```
 
-3. Record the final list of validated repos with their `/repos/<name>/` paths.
+If a slug resolved to **multiple** paths and the user asked to choose:
+
+```
+ask_user(
+  question: "Multiple clones of '<slug>' found:\n<numbered list>\nWhich one should I use?",
+  choices: [
+    "<auto-preferred path> (Recommended)",
+    "<alternative path>",
+    "Cancel the run",
+    "Other… (describe)"
+  ]
+)
+```
+
+### Step 4.5 — Record the resolution
+
+Record the final list as: `repo_slug → resolved_path → status` and pass each
+`resolved_path` (absolute) along with the `repo_slug` to the corresponding
+`diff-summarizer` invocation in Phase 5 (`repo_path` and `repo_url_slug`
+fields). The sub-agent cross-checks the upstream URL against the slug and
+returns `REPO_MISSING` on mismatch.
 
 Note: the actual `git fetch`/`pull`/branch-switch happens **inside** the sub-agents (Phase 5), not here.
 Failures surface as `DIRTY_TREE` / `REFRESH_BLOCKED` statuses that this orchestrator escalates.
@@ -340,13 +447,16 @@ For each validated repo with at least one in-scope PR, launch one `diff-summariz
 - Pass the input block:
 
 ```yaml
-repo_path: /repos/<repo>
+repo_path:     <absolute path resolved in Phase 4 — e.g. /workspace/cluster-repo>
+repo_url_slug: <the URL slug — e.g. "cluster">
 pr_refs:
-  - url:         <url>
-    pr_id:       <id>
-    issue_keys:  [<keys>]
-    title_hint:  <title>
-    status:      <status>
+  - url:                <url>
+    pr_id:              <id>
+    issue_keys:         [<keys>]
+    title_hint:         <title>
+    status:             <status>
+    branch_hint:        <optional, from jira-reader.pull_requests[].branch_hint>
+    target_branch_hint: <optional, from jira-reader.pull_requests[].target_branch_hint>
 context: |
   <2–4 sentences from jira-reader.value_increment.goal + linked_items context>
 refresh:
@@ -363,7 +473,8 @@ For each user-selected repo, launch one `code-scanner` task:
 - Pass input block:
 
 ```yaml
-repo_path: /repos/<repo>
+repo_path:     <absolute path resolved in Phase 4 — e.g. /workspace/cluster-repo>
+repo_url_slug: <the URL slug — e.g. "cluster">
 capability_themes: <list from jira-reader.themes>
 context: |
   <3–5 sentences from jira-reader.value_increment.goal + Epic context>
@@ -381,12 +492,12 @@ model_routing: <block>
 
 After all sub-agents complete, check each handoff `status`:
 
-- `REPO_MISSING` → impossible (checked Phase 4); log and continue
+- `REPO_MISSING` → impossible (resolved in Phase 4); log and continue
 - `DIRTY_TREE`:
 
 ```
 ask_user(
-  question: "The repo /repos/<repo>/ has uncommitted changes and could not be refreshed. How would you like to proceed?",
+  question: "The repo at <repo_path> has uncommitted changes and could not be refreshed. How would you like to proceed?",
   choices: [
     "Continue with current local state",
     "Skip this repo",
@@ -400,7 +511,7 @@ ask_user(
 
 ```
 ask_user(
-  question: "git fetch/pull failed for /repos/<repo>/: <reason>. How would you like to proceed?",
+  question: "git fetch/pull failed for <repo_path>: <reason>. How would you like to proceed?",
   choices: [
     "Continue with current local state",
     "Skip this repo",
@@ -604,6 +715,61 @@ Document structure (adapt based on VI content):
 Write to the output path confirmed in Phase 1.
 **Never write inside `<VAULT_PATH>/_archive/`.**
 **Never write outside cwd unless user provided an explicit absolute path.**
+
+### Use case A — Release-notes draft (separate file)
+
+After writing the feature documentation page(s) above, if
+`release_notes_destination` (from Phase 1 Q6) is **not** `"skip"` AND
+`doc-planner` returned a non-null `release_notes_block`:
+
+1. Render the `release_notes_block.entries` array using
+   `release_notes_block.rendered_template` — one block per release version.
+   Concatenate the rendered blocks with a blank line between them.
+
+2. Wrap the rendered output in a thin Markdown header so the user knows it's
+   a draft:
+
+   ```markdown
+   # <VI summary> — Release-notes draft
+
+   > **Source:** [[<VI_KEY>]]
+   > **Generated:** <YYYY-MM-DD>
+   > **Paste this into Jira's release-notes field. Jira automation will then emit the
+   > `{{#context}}` / `{{#internal-note}}` blocks below into the docs repo.**
+   > **Do NOT commit this file into `dynatrace-docs/_snippets/release-notes/...` —
+   > the Jira-driven automation owns that path and will overwrite manual edits.**
+
+   ---
+
+   <rendered blocks>
+   ```
+
+3. **Apply the destination policy:**
+   - `release_notes_destination = "file:<path>"` → write the draft to that
+     absolute path. Create parent directories as needed (`mkdir -p`). If the
+     file already exists, ask:
+     ```
+     ask_user(
+       question: "Release-notes draft <path> already exists. How would you like to proceed?",
+       choices: [
+         "Overwrite",
+         "Write to <path-v2>.md (new file with -v2 suffix)",
+         "Output to screen instead",
+         "Skip release-notes draft",
+         "Other… (describe)"
+       ]
+     )
+     ```
+   - `release_notes_destination = "stdout"` → emit the rendered draft inline
+     in the Phase 9 final report under a `### Release-notes draft` section
+     instead of writing a file.
+   - `release_notes_destination = "skip"` → do nothing here.
+
+4. **Hard rule — NEVER write the release-notes draft into `<docs-repo>`.**
+   If the resolved write path is inside any directory whose `.git` upstream
+   slug is `dynatrace-docs` (or otherwise matches a docs-repo pattern), abort
+   the write, surface the error to the user via `ask_user`, and offer to
+   redirect to the auto-discovered vault path.
 
 ### Use case B — Child Epic definitions
 
@@ -844,8 +1010,10 @@ jira_key:    <KEY>
 vi_summary:  <text>
 output_files:
   - <path>
+release_notes_destination: <file:<path> | stdout | skip>
+release_notes_versions:    <e.g. "Managed (344), SaaS (344)" | "none">
 repos_analysed:
-  - <repo>: <status>
+  - <repo>: <resolved_path>: <status>
 prs_in_scope: <count>
 doc_review_status: OK | CONCERNS | BLOCKERS_RESOLVED | BLOCKERS_DEFERRED
 model_routing: <block>
@@ -865,9 +1033,9 @@ Output a final report to the user:
 - **Linked items:** <count> (<N> Epic, <N> Story, <N> Sub-task, …)
 
 ### Repos Analysed
-| Repo | Status | PRs resolved | PRs unresolved |
-|------|--------|-------------|----------------|
-| cluster | OK | 3 | 0 |
+| Repo | Resolved Path | Status | PRs resolved | PRs unresolved |
+|------|---------------|--------|-------------|----------------|
+| cluster | /workspace/cluster-repo | OK | 3 | 0 |
 
 ### PRs in Scope
 | PR | Repo | Status | Summary |
@@ -877,6 +1045,19 @@ Output a final report to the user:
 ### Output File(s)
 - `<path>` (<N> lines)
 
+### Release-notes draft
+- Destination: `<file:<path> | stdout | skip>`
+- Versions covered: `<e.g. Managed (344), SaaS (344) | none>`
+<if release_notes_destination == "stdout">
+- Rendered draft:
+  ```
+  <full rendered release-notes block — copy-paste into Jira>
+  ```
+<endif>
+<if release_notes_destination == "file:..." and the file was written>
+- Wrote: `<path>` (<N> lines)
+<endif>
+
 ### Doc Review
 - Status: <OK | CONCERNS | BLOCKERS_RESOLVED>
 - Findings: <count> CONCERNS, <count> BLOCKERS fixed
@@ -885,6 +1066,20 @@ Output a final report to the user:
 #### Review Concerns
 - [<section or heading>]: <finding text>
 - …
+
+### Images requiring manual upload
+<if doc-planner returned image_policy: cdn_upload_required for any target>
+The following screenshots were staged outside the docs repo and need manual
+upload to the configured CDN before merging the docs PR. The doc pages
+reference these images by their **final CDN URL**, not the staging path —
+upload first, then update the URLs in the doc page if they differ from the
+planned alt-text.
+
+| Source | Staging path | Alt text | Upload note |
+|--------|--------------|----------|-------------|
+| `<src>` | `<staging>` | `<alt>` | `<upload_note>` |
+
+<endif if no cdn_upload_required targets, write "None — all images embedded inline.">
 
 ### Model Routing
 <model_routing block>
@@ -905,7 +1100,8 @@ If branch was created:
 |-----------|---------------------------------------------------|
 | `$VAULT_PATH` unset / invalid | "Use /obsidian (Recommended)", "Enter path manually", "Cancel" |
 | Jira key dir not found | "Re-enter the Jira key", "Cancel" |
-| Repo missing under `/repos/` | "Skip this repo", "I'll clone it now — wait", "Cancel the run", "Use a different /repos path" |
+| Repo missing under `$REPOS_PATH` | "Skip this repo", "I'll clone it now — wait", "Cancel the run", "Specify a different absolute path for this repo" |
+| Multiple matching clones for the same URL slug | "<auto-preferred path> (Recommended)", "<alternative path>", "Cancel the run" |
 | `git fetch` failed | "Continue with current local state", "Skip this repo", "Cancel" |
 | `diff-summarizer` returned `unresolved_prs` | "Show candidates and let me pick", "Skip this PR", "Skip this repo", "Cancel" |
 | Use case B, no repos derivable | "List repos manually", "Proceed without code scan", "Cancel" |
@@ -918,3 +1114,5 @@ If branch was created:
 | `dt-style-checker` ERROR (use case B) | "Proceed to review without style check", "Cancel and fix locally" |
 | `doc-reviewer` or `epic-reviewer` BLOCKERS after one fix cycle | Per-BLOCKER: "Provide manual fix notes", "Defer", "Override", "Cancel the whole run" |
 | Output file already exists | "Overwrite", "Write to <path-v2>.md", "Cancel" |
+| Release-notes draft file already exists | "Overwrite", "Write to <path-v2>.md", "Output to screen instead", "Skip release-notes draft" |
+| Release-notes auto-discover failed | drop the default; user picks "Specify a custom absolute path", "Output to screen only", "Skip release notes entirely" |

@@ -3,13 +3,22 @@
 ## Input
 
 ```yaml
-repo_path: /repos/<repo-name>
+repo_path: <absolute path to the locally-cloned repo — e.g. /workspace/cluster-repo,
+            /repos/cluster, ~/projects/cluster. Must contain a .git dir (or be a
+            bare clone). The orchestrator resolves URL slug → local path in
+            Phase 4; this agent does NOT search the filesystem.>
+repo_url_slug: <optional — the URL slug from the PR URL (e.g. "cluster" for
+                bitbucket.../repos/cluster/...). When provided, the agent
+                cross-checks `git remote get-url origin` and rejects mismatches
+                with status: REPO_MISSING.>
 pr_refs:
-  - url:         <full PR URL — used as identifier only, never fetched>
-    pr_id:       <numeric id as string>
-    issue_keys:  [<jira key(s) from link title>]
-    title_hint:  <link text from markdown>
-    status:      MERGED | OPEN | DECLINED | UNKNOWN
+  - url:                 <full PR URL — used as identifier only, never fetched>
+    pr_id:               <numeric id as string>
+    issue_keys:          [<jira key(s) from link title>]
+    title_hint:          <link text from markdown>
+    status:              MERGED | OPEN | DECLINED | UNKNOWN
+    branch_hint:         <optional — source branch name from the export>
+    target_branch_hint:  <optional — target branch name from the export>
 context: |
   <2–4 sentences: Jira context>
 refresh:
@@ -37,12 +46,12 @@ repo_path:  <absolute path>
 prep:
   fetched:       true | false
   pulled:        true | false
-  refresh_note:  <e.g. "fetched 3 new refs" | "skipped — RO mount" | "tree was dirty, refresh skipped">
+  refresh_note:  <e.g. "fetched 3 new refs" | "skipped — RO mount" | "tree was dirty, refresh skipped" | "git fetch timed out after 60s">
 
 per_pr:
   - pr_id:          <id>
     url:            <url>
-    resolved_via:   pr_ref | branch_search | merge_commit | issue_grep | unresolved
+    resolved_via:   branch_hint | pr_ref | branch_search | merge_commit | issue_grep | unresolved
     base:           <sha | null>
     head:           <sha | null>
     files_changed:  <count>

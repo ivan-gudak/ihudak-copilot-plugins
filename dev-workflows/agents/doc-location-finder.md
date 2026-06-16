@@ -116,6 +116,15 @@ has no existing section that's a natural adjacent home").
 - NEVER propose a target outside `repo_root` or below a path the user wouldn't
   reasonably recognise as part of the docs tree (e.g. inside `node_modules/`,
   `.git/`, build output directories).
+- NEVER propose a release-notes / what's-new snippet directory as a target —
+  for example any path matching `_snippets/release-notes/`,
+  `_content/whats-new/<product>/sprint-*`, or other release-notes structures.
+  The release-notes draft is generated separately by `doc-planner`'s
+  `release_notes_block` and written to an obsidian-vault location by
+  `impl-jira` Phase 6 — NOT into the docs repo. Skip these paths even if they
+  score highly on keyword overlap; the rationale is that the docs repo
+  release-notes pages are produced by Jira-driven automation, and a manual
+  write here risks being overwritten.
 - NEVER guess at prose content for the target pages. This agent picks *where*,
   not *what*.
 - NEVER return more than ~5 targets. If the feature legitimately has more, rank

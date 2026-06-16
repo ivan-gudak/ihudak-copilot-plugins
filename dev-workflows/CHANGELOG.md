@@ -4,6 +4,98 @@ All notable changes to the **dev-workflows** plugin are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow semver at the plugin level.
 
+## [1.5.0] — 2026-06-15
+
+### Added
+- **`impl:jira:docs:` — release-notes draft output.** When the VI's frontmatter
+  has `relevant_for_release_notes: "Yes"` or a non-empty `release_versions`
+  string, the workflow now generates a release-notes draft alongside the
+  feature documentation page. The draft is written to a configurable
+  destination (auto-discovered Obsidian project folder by default, custom
+  path, stdout, or skip — chosen via Phase 1 Q6) — **never** into the
+  dynatrace-docs repo, because that path is owned by Jira-driven automation.
+  The draft is rendered in the dynatrace-docs `{{#context}}` /
+  `{{#internal-note}}` block format so the user can paste it into Jira and
+  the existing automation re-emits it into the docs repo.
+- **`doc-planner` — `release_notes_block` output field.** New top-level
+  output that captures one entry per declared release version with the
+  rendered template, citation source list, and assignee/reporter/PE/status
+  populated from `value_increment.frontmatter`. `target_format:
+  dynatrace-docs-release-notes-v1` lets consumers detect the schema.
+- **`jira-reader` — full frontmatter exposure.** `value_increment` and every
+  `linked_items[]` entry now carry a `frontmatter:` sub-object containing
+  the file's full raw frontmatter. Always-surfaced fields:
+  `assignee`, `reporter`, `execution_assignee`, `team`, `project`,
+  `fix_versions`, `release_versions`, `relevant_for_release_notes`,
+  `owning_program`, `labels`, `resolution`. Any additional fields the file
+  declares are passed through verbatim. Existing schema fields unchanged
+  (additive only).
+- **`jira-reader` — branch-hint extraction.** Scans the `Pull Requests`
+  section of each Jira-export file for sub-bullets like
+  `- Branch: \`feature/MGD-1127-...\` → \`master\``. When present, exposes
+  `branch_hint` and `target_branch_hint` on the matching
+  `pull_requests[]` entry.
+- **`diff-summarizer` — Strategy 0 branch-hint resolution.** When
+  `branch_hint` is present on a PR ref, attempts
+  `git rev-parse refs/heads/<hint>` (and `origin/<hint>`) before falling
+  through to existing Strategies 1–4. Records `resolved_via: branch_hint`
+  on hits.
+- **`impl-docs` — Jira-ticket detection.** When `impl:docs: @<file>` loads
+  a file with frontmatter `key: <JIRA_KEY>` plus `[[wikilink]]` references
+  and a `## Linked Issues` / `## Pull Requests` heading, the skill offers
+  to re-route to `impl:jira:docs:` instead of running the lightweight prose
+  workflow.
+- **`impl-jira` Phase 9 — image-upload reminder.** Final report now lists
+  every screenshot staged outside the docs repo (where
+  `image_policy: cdn_upload_required`), so the user knows what needs
+  manual CDN upload before merging the docs PR.
+
+### Changed (breaking for orchestrators that hardcode `/repos/`)
+- **`impl-jira` repo discovery — `$REPOS_PATH`-based.** The hardcoded
+  `/repos/<repo>/` path lookup in Phase 4 is replaced with a configurable
+  scan rooted at `$REPOS_PATH` (default `/workspace`; colon-separated list
+  supported). For each in-scope PR repo URL slug, the orchestrator scans
+  candidate directories under `$REPOS_PATH`, runs
+  `git remote get-url origin` (5s timeout per dir), and matches by the
+  upstream URL's last path segment. When multiple local clones share an
+  upstream (e.g. `cluster` + `cluster-repo`), the auto-preferred order is:
+  `<slug>-repo` > `<slug>_repo` > `<slug>_fast` > alphabetically last.
+  Sub-agents (`diff-summarizer`, `code-scanner`) now receive an absolute
+  `repo_path` plus a `repo_url_slug` and reject mismatches via
+  `git remote get-url origin` cross-check.
+- **Phase 1 Q3 / Q4 wording.** Code-scan and refresh-policy questions now
+  refer to `$REPOS_PATH` instead of `/repos/`.
+- **Phase 5 error escalation.** `DIRTY_TREE` / `REFRESH_BLOCKED` prompts
+  now report the resolved `repo_path` instead of a synthetic `/repos/...`
+  string.
+- **`doc-planner` topic-list semantics.** "What's new" remains a valid
+  topic on a normal documentation target, but the **standalone release
+  notes draft is no longer one of the targets** — it is emitted via the
+  top-level `release_notes_block` field instead. New hard rule forbids
+  proposing release-notes snippet paths as `target_path`.
+- **`doc-location-finder` exclusions.** New hard rule: never propose a
+  release-notes / what's-new snippet directory as a target (e.g.
+  `_snippets/release-notes/`, `_content/whats-new/<product>/sprint-*`).
+  Even high keyword-overlap matches in those paths are skipped, because
+  the docs repo's release-notes pages are produced by Jira-driven
+  automation and a manual write would be overwritten.
+
+### Fixed
+- **`diff-summarizer` and `code-scanner` — git fetch/pull timeouts.**
+  `git fetch --all --prune` and `git pull --ff-only` are now wrapped in
+  `timeout 60`; on timeout, the agent returns `REFRESH_BLOCKED` with the
+  reason `"git fetch timed out after 60s"` instead of hanging the workflow.
+
+### Migration notes
+- If you have local automation that invokes `diff-summarizer` or
+  `code-scanner` directly (outside the orchestrator), update the input
+  block: `repo_path` is now an absolute path (any path is acceptable, not
+  only `/repos/<name>`), and a new optional `repo_url_slug` enables the
+  upstream cross-check.
+- If you previously customised the `impl-jira` Phase 4 to point at
+  `/repos/`, set `REPOS_PATH=/repos` in your environment to preserve the
+  old behaviour.
+
 ## [1.4.0] — 2026-06-15
 
 ### Breaking changes

@@ -3,7 +3,11 @@
 ## Input
 
 ```yaml
-repo_path: /repos/<repo-name>
+repo_path: <absolute path to the locally-cloned repo — e.g. /workspace/cluster-repo,
+            /repos/cluster, ~/projects/cluster. Must contain a .git dir or be a
+            bare clone. Orchestrator resolves URL slug → local path in Phase 4.>
+repo_url_slug: <optional — the URL slug; agent cross-checks via
+                `git remote get-url origin` and returns REPO_MISSING on mismatch>
 capability_themes:
   - <short phrase>
 context: |

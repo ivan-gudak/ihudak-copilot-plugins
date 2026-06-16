@@ -14,14 +14,14 @@
       "name": "dev-workflows",
       "source": "dev-workflows",
       "description": "Structured development workflow skills — impl-dispatcher (help), impl:code (classify → plan → branch → baseline → implement → test → Opus review → maintenance), impl-docs (one-shot doc edits), impl-jira (Jira-driven feature docs and Epic drafting), fix-vuln (CVE remediation), upgrade (dependency upgrades), api-guideline-reviewer, and guideline-reviewer. Eight user-facing orchestrator skills plus nineteen dispatched sub-agents (risk-planner, code-review, doc-reviewer, epic-reviewer, test-baseliner, test-writer, review-fixer, doc-fixer, docs-style-checker, doc-planner, doc-location-finder, jira-reader, diff-summarizer, code-scanner, impl-maintenance, vuln-research, vuln-fixer, upgrade-planner, upgrade-executor). Three notification/context hooks.",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "homepage": "https://github.com/ihudak/ihudak-copilot-plugins/tree/main/dev-workflows"
     },
     {
       "name": "dt-style-guide",
       "source": "dt-style-guide",
       "description": "Dynatrace corporate style guide checker and writing-aid plugin. Enforces terminology, trademarks, voice/tone, grammar, formatting, and inclusive-language rules from styleguide.dynatrace.com. Includes dt-review-pr (review PR doc changes), dt-review-docs (review files/directories with optional --fix), dt-style-refresh (update vendored rules), a dt-style-rules skill, two dispatched sub-agents (dt-style-checker, dt-doc-fixer), and eight vendored reference docs. Acts as a fallback for dev-workflows when no repo-configured prose linter is available.",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "homepage": "https://github.com/ihudak/ihudak-copilot-plugins/tree/main/dt-style-guide"
     },
     {

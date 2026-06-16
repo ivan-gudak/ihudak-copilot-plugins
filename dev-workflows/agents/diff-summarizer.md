@@ -20,13 +20,23 @@ One instance per repository; all repos are launched in parallel in a single orch
 The orchestrator passes this block verbatim:
 
 ```yaml
-repo_path: /repos/<repo-name>
+repo_path: <absolute path to the locally-cloned repo — e.g. /workspace/cluster-repo,
+            /repos/cluster, ~/projects/cluster. Must contain a .git directory or
+            be a bare clone. The orchestrator resolves repo URL slug → local path
+            in Phase 4; this agent does NOT search the filesystem.>
+repo_url_slug: <the URL slug from the PR URL (e.g. "cluster" for
+                bitbucket.../repos/cluster/...). Used only for cross-checking
+                that repo_path's `git remote get-url origin` matches the slug —
+                if it does not, return status: REPO_MISSING with a clear reason.>
 pr_refs:
-  - url:         <full Bitbucket/GitHub PR URL — identifier only, never fetched>
-    pr_id:       <numeric id as string>
-    issue_keys:  [<jira keys from the link title, e.g. ["MGD-1127"]>]
-    title_hint:  <link text from markdown>
-    status:      MERGED | OPEN | DECLINED | UNKNOWN
+  - url:                 <full Bitbucket/GitHub PR URL — identifier only, never fetched>
+    pr_id:               <numeric id as string>
+    issue_keys:          [<jira keys from the link title, e.g. ["MGD-1127"]>]
+    title_hint:          <link text from markdown>
+    status:              MERGED | OPEN | DECLINED | UNKNOWN
+    branch_hint:         <optional — source branch name from the export, used
+                          by Strategy 0; omit if not provided>
+    target_branch_hint:  <optional — target branch name from the export>
 context: |
   <2–4 sentences: what Jira context this repo's PRs relate to>
 refresh:
@@ -46,6 +56,18 @@ model_routing:
 Check that `repo_path` exists and contains a `.git` directory (or is a bare clone).
 - If not → return `status: REPO_MISSING` immediately.
 
+If `repo_url_slug` was provided, additionally verify that the resolved repo
+matches the expected upstream:
+
+```bash
+git -C <repo_path> remote get-url origin 2>/dev/null
+```
+
+The last path segment of the URL (with any trailing `.git` stripped) MUST equal
+`repo_url_slug`. If it does not, return `status: REPO_MISSING` with reason:
+`"repo at <repo_path> has remote slug '<actual>'; expected '<repo_url_slug>'"`.
+The orchestrator chose this path; do not silently summarise the wrong repo.
+
 ### Step 2 — Prep step
 
 1. Run `git -C <repo_path> status --porcelain`.
@@ -53,19 +75,41 @@ Check that `repo_path` exists and contains a `.git` directory (or is a bare clon
    - If output is non-empty AND both are `false` → proceed (user opted out of refresh; dirty tree noted in `prep.refresh_note`).
 
 2. If `refresh.fetch`:
-   - Run `git -C <repo_path> fetch --all --prune`.
-   - On failure (auth error, network issue, RO mount) → return `status: REFRESH_BLOCKED` with the error in `prep.refresh_note`.
+   - Run `timeout 60 git -C <repo_path> fetch --all --prune`.
+   - On non-zero exit (auth error, network issue, RO mount, or timeout) → return
+     `status: REFRESH_BLOCKED` with the error in `prep.refresh_note`. If the exit
+     code is 124 (GNU `timeout` SIGTERM), report
+     `prep.refresh_note: "git fetch timed out after 60s"`.
 
 3. If `refresh.pull`:
    - Detect default branch: `git -C <repo_path> symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'`; fallback to `main`, then `master`.
-   - Run `git -C <repo_path> checkout <default>` and `git -C <repo_path> pull --ff-only`.
-   - On failure → return `status: REFRESH_BLOCKED` with reason.
+   - Run `git -C <repo_path> checkout <default>` and
+     `timeout 60 git -C <repo_path> pull --ff-only`.
+   - On failure or timeout → return `status: REFRESH_BLOCKED` with reason.
 
 Record `prep.fetched`, `prep.pulled`, `prep.refresh_note`.
 
 ### Step 3 — Resolve each PR (local git only)
 
 For each entry in `pr_refs`, try strategies in order:
+
+**Strategy 0 — Branch-hint fast path (when provided)**
+
+If `branch_hint` is present:
+
+```bash
+git -C <repo_path> rev-parse "refs/heads/<branch_hint>" 2>/dev/null \
+  || git -C <repo_path> rev-parse "refs/remotes/origin/<branch_hint>" 2>/dev/null
+```
+
+If exactly one of these resolves to a SHA:
+- `head = <resolved sha>`
+- If `target_branch_hint` is present and resolves, use it as the merge base via
+  `git merge-base <target_branch_hint> <head>`. Otherwise fall back to the
+  default branch.
+- Record `resolved_via: branch_hint`
+
+If neither ref resolves, fall through to Strategy 1.
 
 **Strategy 1 — Bitbucket Server pull-request refs**
 

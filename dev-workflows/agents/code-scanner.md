@@ -19,7 +19,14 @@ One instance per repository; all repos are launched in parallel in a single orch
 The orchestrator passes this block verbatim:
 
 ```yaml
-repo_path: /repos/<repo-name>
+repo_path: <absolute path to the locally-cloned repo — e.g. /workspace/cluster-repo,
+            /repos/cluster, ~/projects/cluster. Must contain a .git directory or
+            be a bare clone. The orchestrator resolves URL slug → local path in
+            Phase 4; this agent does NOT search the filesystem.>
+repo_url_slug: <optional — the URL slug from upstream (e.g. "cluster" for
+                bitbucket.../repos/cluster/...). When provided, the agent
+                cross-checks `git remote get-url origin` and rejects mismatches
+                with status: REPO_MISSING.>
 capability_themes:
   - <short phrase, e.g. "ActiveGate auto-update windows">
   - <short phrase, e.g. "Network-zone aware update scheduling">
@@ -46,6 +53,18 @@ model_routing:
 Check that `repo_path` exists.
 - If not → return `status: REPO_MISSING` immediately.
 
+If `repo_url_slug` was provided, additionally verify that the resolved repo
+matches the expected upstream:
+
+```bash
+git -C <repo_path> remote get-url origin 2>/dev/null
+```
+
+The last path segment of the URL (with any trailing `.git` stripped) MUST equal
+`repo_url_slug`. If it does not, return `status: REPO_MISSING` with reason:
+`"repo at <repo_path> has remote slug '<actual>'; expected '<repo_url_slug>'"`.
+The orchestrator chose this path; do not silently scan the wrong repo.
+
 ### Step 2 — Prep step (optional; controlled by `refresh`)
 
 1. Run `git -C <repo_path> rev-parse --abbrev-ref HEAD 2>/dev/null` to record current branch.
@@ -59,8 +78,8 @@ Check that `repo_path` exists.
    - On failure (RO mount, detached HEAD, dirty tree) → return `status: REFRESH_BLOCKED` with reason.
 
 4. If `refresh.pull`:
-   - Run `git -C <repo_path> pull --ff-only`.
-   - On failure → return `status: REFRESH_BLOCKED` with reason.
+   - Run `timeout 60 git -C <repo_path> pull --ff-only`.
+   - On failure or timeout (exit 124) → return `status: REFRESH_BLOCKED` with reason.
 
 Record `prep.branch_at_scan`, `prep.refreshed`, `prep.refresh_note`.
 

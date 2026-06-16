@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.1
+
+### Changed
+- **`dt-review-pr` SKILL.md examples** — the `--repo <path>` example was
+  updated from `/repos/dynatrace-docs` to `/workspace/dynatrace-docs` to match
+  the convention used by `dev-workflows` v1.5.0+ (default `$REPOS_PATH` is
+  `/workspace`). The skill itself accepts any absolute path; only the
+  documented example changed. No behaviour change.
+
 ## 0.3.0 (Copilot)
 
 ### Breaking changes

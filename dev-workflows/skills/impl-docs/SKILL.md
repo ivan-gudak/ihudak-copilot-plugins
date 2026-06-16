@@ -39,6 +39,34 @@ Activated when the user prompt starts with `impl:docs:`.
    > This change appears to include source code modifications. Use `impl:code:` instead —
    > it provides the full test-writing and review workflow required for code changes.
 
+4. **Jira-ticket guard** (only when the description came from `@<file.md>` in step 1):
+   detect whether the loaded file is an Obsidian export of a Jira work-item. The
+   triggers are **all** of the following:
+   - Frontmatter contains a `key:` field whose value matches `^[A-Z][A-Z0-9]+-\d+$`
+     (e.g. `PRODUCT-14902`, `MGD-789`).
+   - The body contains at least one Obsidian wikilink `[[KEY]]` referencing a Jira
+     key (same regex as above) — typical exports include linked-issue lists.
+   - At least one of: an `## Linked Issues` heading, a `## Pull Requests` heading,
+     or `**Index:**` line referencing `<KEY>-index`.
+
+   When all three triggers fire:
+   ```
+   ask_user(
+     question: "This file looks like a Jira export (key: <KEY>). The Jira-driven docs workflow can aggregate linked tickets, resolve PR diffs across repos, and generate release notes from frontmatter. How would you like to proceed?",
+     choices: [
+       "Use impl:jira:docs: instead (Recommended) — pass me the Jira key and I'll re-route",
+       "Continue with impl:docs: — I want lightweight prose editing only",
+       "Cancel",
+       "Other… (describe)"
+     ]
+   )
+   ```
+
+   - Choice 1 → STOP this skill. Print: `"Re-run with: impl:jira:docs: <KEY>  (or attach the export: impl:jira:docs: @<path>)"` and exit.
+   - Choice 2 → continue with impl:docs:. Note in the Phase 5 report that
+     impl:jira:docs: was offered and declined.
+   - Choice 3 → exit.
+
 ---
 
 ## Phase 0.5 — Classify (always SIMPLE / MODERATE for docs)
