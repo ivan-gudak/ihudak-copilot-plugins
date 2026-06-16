@@ -99,8 +99,14 @@ priority:
   count the actual enumeration in source.
 
 **Severity rules for source-code findings:**
-- Documented option / label / count that does NOT appear in source →
-  **BLOCKER**. Customer-facing wrongness will cause support tickets.
+- Documented option / label / count that does NOT appear in source AND
+  has no intentional-discrepancy marker → **BLOCKER**. Customer-facing
+  wrongness will cause support tickets.
+- Documented option / label / count that does NOT appear in source AND
+  IS preceded by an intentional-discrepancy marker (added v1.8.0; see
+  format below) → **OK**. The discrepancy was a user-aware decision
+  recorded in the corresponding bug-report draft. Recognise the marker;
+  don't re-flag.
 - Documented option that's STALE (matches an older source version) →
   **BLOCKER** if the source has changed; **CONCERN** if the doc
   describes intent that diverged but is still accurate for the
@@ -111,6 +117,24 @@ priority:
   doc says "Older stable", source `displayName` says "Older stable
   (currently 1.343)") → **CONCERN** with suggestion to use the
   canonical phrasing.
+
+**Intentional-discrepancy marker format (recognised v1.8.0+):** the
+writer emits this HTML comment immediately before any prose that
+intentionally describes a Jira claim that the source contradicts or
+does not contain:
+
+```markdown
+<!-- intentional-discrepancy: Jira <KEY> describes "<jira_phrasing>"
+but the source at <file:line> currently has "<source_phrasing>".
+User decision: document Jira phrasing pending implementation. See
+<bug-report-path> gap #<n>. -->
+```
+
+When this marker is present, treat the discrepancy between the prose
+and the source as a known/recorded gap (NOT a BLOCKER). The reviewer
+may still note it as a CONCERN if the marker's claimed `source_phrasing`
+no longer matches what's in the source (i.e., the implementation has
+moved since the docs were drafted).
 
 **When `code_repos` is empty/omitted:** record one CONCERN per file:
 "Source-code accuracy: not verifiable — `code_repos` input was not

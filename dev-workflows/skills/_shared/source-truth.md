@@ -3,11 +3,14 @@
 This document is the **single source of truth** for one of the most important
 rules in the `dev-workflows` plugin:
 
-> **Implementation > Description.** The source code is what customers will use.
-> Jira tickets, PRDs, design specs, and prose descriptions are the *starting
-> point*, not the *spec*. They may be outdated, aspirational, simplified, or
-> wrong. Every user-visible claim in generated documentation MUST be verified
-> against the implementation before it is published.
+> **Verify against the implementation; escalate every discrepancy to the user.**
+> The source code is what customers will use. Jira tickets, PRDs, design specs,
+> and prose descriptions are the *starting point*, not the *spec* — they may
+> be outdated, aspirational, simplified, or wrong. Every user-visible claim in
+> generated documentation MUST be verified against the implementation, and
+> every disagreement between the description and the source MUST be surfaced
+> to the user for an explicit decision. **The plugin is the analyst; the user
+> is the decision-maker.** The plugin never silently picks a winner.
 
 Every sub-agent that synthesises documentation (`doc-planner`,
 `doc-reviewer`, `epic-reviewer`, `code-scanner`) MUST apply this principle.
@@ -17,16 +20,39 @@ Every sub-agent that synthesises documentation (`doc-planner`,
 ## 1. The principle
 
 Customers do not read your Jira tickets. They read the docs, click the UI,
-hit the API. If a Jira ticket says "user picks Latest stable / Previous
-stable / specific version" and the code shows four presets (Latest /
-Previous / **Older** / specific), the docs MUST reflect what the customer
-actually sees, not what the ticket described.
+hit the API. So the docs must reflect what shipped — but the *what shipped*
+question is sometimes a product-management question, not a code-truth question.
 
-When the description and the code disagree, the **code wins**. Always.
+When a Jira ticket says "user picks Latest / Previous / specific version" and
+the source code shows four presets (Latest / Previous / **Older** / specific),
+that's a discrepancy. The plugin **doesn't** automatically pick one side;
+it presents the discrepancy and asks the user. The user has context the plugin
+doesn't (PM intent, sprint planning, agreed scope, customer expectations).
 
-If the description and the code agree, the docs still cite the verified
-source — never the description alone — so the docs do not silently drift
-when a future ticket revision diverges from what shipped.
+The user might decide:
+
+- **"Document as source suggests"** — the implementation is the spec; update
+  Jira separately. Often the right call: the implementer found extra value
+  or the Jira was simplified for stakeholder consumption.
+- **"Document as Jira claims"** — the implementation has a gap; the docs
+  should describe what was *promised*, the user reports a bug against the
+  team, and the doc PR holds until the gap is closed. Often the right call
+  when shipping a feature with an acceptance contract.
+- **"Skip this claim and report"** — neither side is wrong, but the discrepancy
+  is too subtle to ship docs around; flag it for the team and leave the
+  paragraph out for now.
+
+The plugin's job is to **detect the discrepancy and present the analysis** in
+the form of a table:
+
+| # | Claim | Jira phrasing | Source phrasing | Source location | Verdict |
+
+with one row per discrepancy and three per-row choices. See §7 for the
+escalation protocol.
+
+If the description and the code AGREE, the docs still cite the verified
+source so they do not silently drift when a future ticket revision diverges
+from what shipped.
 
 ## 2. What MUST be verified
 
@@ -122,49 +148,69 @@ The orchestrator passes `code_repos:` as an input — a list of
 diff-summarizer. doc-planner MUST:
 
 1. Extract every user-visible claim from the proposed checklist (option
-   names, button labels, default values, counts, menu paths, mode names).
+   names, button labels, default values, counts, menu paths, mode names,
+   schema field names, UI flow steps).
 2. For each claim, run the appropriate technique from §3 against the
    `code_repos` to verify the claim.
-3. If a claim cannot be verified, OR the source contradicts the claim,
-   emit a `verification_warnings` entry with: the claim, the
-   technique used, the source location checked, and the discrepancy.
-4. Adjust the checklist topic notes to match what the source actually
-   says — do not pass the unverified claim through to the writer.
+3. For each claim, emit a `verification_warnings` entry with one of these
+   findings (added v1.8.0 — finer-grained than v1.7.0):
+   - **`VERIFIED`** — source agrees with the claim. (Recommend omitting from
+     the list to reduce noise; OR include with a single line for audit.)
+   - **`CONTRADICTED`** — source has a different value/label/count. Record
+     BOTH the `jira_phrasing` AND the `source_phrasing` verbatim. Do NOT
+     pick a winner.
+   - **`NOT_FOUND`** — Jira mentioned a behavior/UI element that has zero
+     trace in the source. Implementation-gap candidate. Record the Jira
+     phrasing and the locations checked.
+   - **`AMBIGUOUS`** — multiple plausible source matches with different
+     phrasing; verification can't pick one.
+4. **Do NOT rewrite the topic notes to match the source** (v1.8.0 change).
+   Leave the claim as the Jira description had it; the orchestrator will
+   prompt the user per discrepancy at Phase 5.8 (impl-jira) and the user
+   decides whether to use Jira phrasing, source phrasing, or skip.
 
 ### 4.3 `doc-reviewer` (use case A)
 
 The orchestrator also passes `code_repos:` to the reviewer. The reviewer
-runs the **Source-code accuracy** dimension (added in v1.7.0): spot-check
-3–5 user-visible claims per file against the source using §3 techniques.
-Any documented option/label/value that does NOT appear in the source is a
-**BLOCKER** (severity rule: customer-facing wrongness blocks publication).
+runs the **Source-code accuracy** dimension: spot-check 3–5 user-visible
+claims per file against the source using §3 techniques. **Severity rule
+(updated v1.8.0):** a documented claim that does NOT appear in the source
+is a **BLOCKER** UNLESS the doc contains an explicit intentional-discrepancy
+marker explaining the gap. See §7 for the marker format.
 
 ### 4.4 `code-scanner` + `epic-reviewer` (use case B)
 
 For Epic-writing, the principle applies in reverse: the planner uses
 existing code presence/absence to scope Epics that don't yet exist. The
 scanner already operates on code; reinforce that any Epic claim about
-existing behaviour must trace back to a code reference, not a Jira
-description.
+*existing behaviour* must trace back to a code reference, not a Jira
+description. Epic-reviewer applies the §7 escalation protocol if the
+parent VI's description and observed code state disagree.
 
 ## 5. Hard rules
 
 - NEVER copy a Jira description's option list, count, label, or default
-  value into the docs without checking the source.
+  value into the docs without running source verification on it.
 - NEVER trust a Jira ticket's "User Story" section as the spec — it is
   the customer-narrative phrasing, often simplified.
 - NEVER trust a Jira ticket's date — descriptions are often months old
   and may pre-date the actual implementation.
-- When source and description disagree, **the source wins**. Document
-  what was shipped. If the description's intent matters, raise a
-  follow-up ticket; don't ship the description.
+- **NEVER silently pick a winner** when source and description disagree
+  (changed in v1.8.0). The plugin is the analyst; the user is the
+  decision-maker. See §7 for the escalation protocol.
 - When source verification is impossible (no code repos provided, source
   not yet implemented, generated code), surface that as a
-  `verification_warning` with action `"ask user"` — never silently emit
-  unverified user-visible claims.
+  `verification_warning` with `finding: NOT_FOUND` and
+  `technique: "no-source-evidence"` — never silently emit unverified
+  user-visible claims.
 - Reviewer severity rule: a customer-visible option / label / count
-  that does not appear in the source is **BLOCKER**, not CONCERN.
-  Customers will use the wrong information and file support tickets.
+  that does not appear in the source is **BLOCKER**, not CONCERN —
+  unless an intentional-discrepancy marker is present (§7).
+- Bug-report draft destination is the same vault project folder used for
+  the release-notes draft (auto-discovered by the orchestrator at
+  `<vault>/Projects/Products/**/<JIRA_KEY>*`). File name:
+  `<JIRA_KEY>-implementation-gaps.md`. Same hard rule as for release-notes:
+  **NEVER `/tmp/`** — container restarts wipe it.
 
 ## 6. Example (real, from PRODUCT-14902)
 
@@ -184,7 +230,164 @@ private static final int ENTRY_LIMIT = 3; // only latest, previous and older can
 ```
 
 The source shipped **4 options** (Latest / Previous / **Older** / specific
-main version). The Jira "User Story" missed "Older". A v1.6.0 docs-PR
-shipped with the 3-option Jira phrasing — caught only in a manual review
-round, not by the plugin. v1.7.0 adds the verification step to prevent
-the next instance.
+main version). The Jira "User Story" missed "Older".
+
+- v1.6.0 shipped the 3-option Jira phrasing — caught only in a manual
+  review round.
+- v1.7.0 added source verification but defaulted to silently picking the
+  source side.
+- v1.8.0 surfaces the discrepancy as a §7 table and asks the user.
+
+A complementary example from the same VI, also caught by manual review:
+the Jira "UI changes" section described renaming `Settings > Updates` to
+`Settings > Deployment`. The source (`ClusterSettingsMenu.java:1404`)
+still has `.withTitle("Updates")` — zero hits for any "Deployment" rename
+anywhere in the cluster repo. v1.7.0 would have rewritten the doc to say
+"Settings > Updates"; v1.8.0 instead presents the discrepancy and lets the
+user decide whether to document the *shipped* path or document the *promised*
+path and file a bug against the implementation team for the missing rename.
+
+---
+
+## 7. Discrepancy escalation protocol (added v1.8.0)
+
+When `doc-planner` (or any sub-agent doing source verification) emits one
+or more `verification_warnings` with finding `CONTRADICTED`, `NOT_FOUND`,
+or `AMBIGUOUS`, the orchestrator MUST follow this protocol before
+proceeding to Phase 6 (writing).
+
+### 7.1 Present the analysis table
+
+Build a single ask_user prompt showing every discrepancy in a table:
+
+```
+| # | Claim                          | Jira phrasing                              | Source phrasing                       | Source location                                | Verdict       |
+|---|--------------------------------|--------------------------------------------|----------------------------------------|------------------------------------------------|---------------|
+| 1 | Target version preset list     | "Latest stable, Previous stable, specific" | "Latest, Previous, Older, specific"    | …/PrivateActiveGateAutoUpdateDataSource.java:35 | CONTRADICTED  |
+| 2 | Menu rename                    | "Settings > Updates → Settings > Deployment" | "Settings > Updates" (unchanged)     | …/ClusterSettingsMenu.java:1404                | NOT_FOUND     |
+```
+
+This table is informational — display it before asking decisions.
+
+### 7.2 Ask the user how to proceed (batch first)
+
+```
+ask_user(
+  question: "<N> discrepancies between the Jira description and the source code were found (see table above). How would you like to handle them?",
+  choices: [
+    "Decide per discrepancy (Recommended)",
+    "Apply 'document as source suggests' to ALL",
+    "Apply 'document as Jira claims' to ALL (will draft a bug report for the team)",
+    "Apply 'skip and report' to ALL (will draft a bug report; no claims documented)",
+    "Cancel"
+  ]
+)
+```
+
+### 7.3 Per-discrepancy decision (if user chose "Decide per discrepancy")
+
+For each discrepancy in turn:
+
+```
+ask_user(
+  question: "Discrepancy #<n>: <claim>\n  - Jira: <jira_phrasing>\n  - Source: <source_phrasing>\n  - Source location: <file:line>\n\nHow would you like to handle this one?",
+  choices: [
+    "Document as source suggests (Recommended for CONTRADICTED) — match what shipped; users see what's there",
+    "Document as Jira claims — describe the promised behaviour; the orchestrator will add a TODO/bug-report draft so you can file a defect against the team",
+    "Skip this claim entirely and report it — the docs leave this paragraph out; the bug-report draft still records the gap",
+    "Cancel the whole run"
+  ]
+)
+```
+
+### 7.4 Record decisions
+
+Maintain a `discrepancy_decisions` record keyed by discrepancy number:
+
+```yaml
+discrepancy_decisions:
+  - number:           1
+    claim:            "Target version preset list"
+    jira_phrasing:    "Latest stable, Previous stable, specific"
+    source_phrasing:  "Latest, Previous, Older, specific"
+    source_location:  ".../PrivateActiveGateAutoUpdateDataSource.java:35"
+    decision:         "document-as-source"
+    rationale:        <user-provided text if "Other...">
+  - number:           2
+    claim:            "Menu rename"
+    jira_phrasing:    "Settings > Updates → Settings > Deployment"
+    source_phrasing:  "Settings > Updates (unchanged)"
+    source_location:  ".../ClusterSettingsMenu.java:1404"
+    decision:         "skip-and-report"
+    rationale:        <user text>
+```
+
+Pass this record to Phase 6 (writer). The writer:
+
+- For `document-as-source` decisions: use the source phrasing verbatim in
+  the docs.
+- For `document-as-jira` decisions: use the Jira phrasing AND insert an
+  intentional-discrepancy marker (see §7.6) at the start of the
+  enclosing section.
+- For `skip-and-report` decisions: omit the claim from the docs entirely.
+
+### 7.5 Emit the bug-report draft
+
+When `discrepancy_decisions` contains ANY entry with decision
+`document-as-jira` or `skip-and-report`, the writer MUST emit a Markdown
+file alongside the release-notes draft at the auto-discovered vault
+project folder:
+
+```
+<vault>/Projects/Products/**/<JIRA_KEY>*/<JIRA_KEY>-implementation-gaps.md
+```
+
+Format:
+
+```markdown
+# <JIRA_KEY> — Implementation gaps found during documentation
+
+Generated <YYYY-MM-DD>. File these as defects against the implementation
+team (or amend the Jira ticket if the gap is intentional).
+
+## Gap <n>: <claim>
+
+- **Jira phrasing**: <jira_phrasing>
+- **Source state**: <source_phrasing>
+- **Source location**: <file:line>
+- **User decision in docs**: <decision>
+- **Docs status**: <"described as Jira claims, awaiting implementation"
+                    | "omitted from docs">
+- **Suggested action**: file a Jira defect against the team that owns
+  <source_location>'s component. Include a link to <JIRA_KEY> and a link
+  to this gap analysis.
+```
+
+The bug-report draft uses the same hard-rule for destination as the
+release-notes draft (vault, never `/tmp/`, never inside the docs repo).
+
+### 7.6 Intentional-discrepancy marker format (for the writer)
+
+For `document-as-jira` decisions, the writer inserts this marker
+immediately before the affected prose:
+
+```markdown
+<!-- intentional-discrepancy: Jira <JIRA_KEY> describes
+"<jira_phrasing>" but the source at <file:line> currently has
+"<source_phrasing>". User decision: document Jira phrasing pending
+implementation. See <vault-path>/<JIRA_KEY>-implementation-gaps.md gap #<n>. -->
+```
+
+`doc-reviewer`'s Source-code accuracy dimension (§4.3) recognises this
+marker and treats the discrepancy as intentional (not BLOCKER) when it
+is present.
+
+### 7.7 When source-verification is impossible
+
+If the orchestrator didn't pass `code_repos`, OR the code repos are
+empty/unreachable: doc-planner emits a single `verification_warnings`
+entry per user-visible claim with `finding: NOT_FOUND`,
+`technique: "no-source-evidence"`. The orchestrator presents the same
+§7.1 table (with `Source phrasing: "(not verifiable)"`) and the same
+§7.2/§7.3 prompts; "Document as Jira claims" is then the natural
+default since no source-side phrasing is available.

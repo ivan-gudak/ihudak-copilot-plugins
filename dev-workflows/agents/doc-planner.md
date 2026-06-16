@@ -157,7 +157,7 @@ For each write target:
    - `"skip with note in final report"` — the gap is recorded in the final
      `### Skipped items` section.
 
-8.5 **Source-code verification pass (added v1.7.0 — mandatory per
+8.5 **Source-code verification pass (added v1.7.0, refined v1.8.0 per
    `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/source-truth.md`).**
 
    For every user-visible claim the planner intends to put in any topic's
@@ -169,35 +169,45 @@ For each write target:
      `*Provider.java` classes referenced by the schema's
      `datasource.identifier`. Read the canonical enum / option values.
    - **UI labels** — grep for `displayName:`, `addItemButton:`,
-     `label:` constants. Match the exact string the doc will use.
+     `label:` constants, plus `.withTitle(...)` / `.withDescription(...)`
+     calls in menu definition classes. Match the exact string the doc
+     will use.
+   - **Menu paths** — grep menu-builder code (e.g. `ClusterSettingsMenu.java`)
+     for `.withTitle("...")` chains. Confirm the Settings > X > Y
+     navigation path is what the source actually constructs.
    - **Default values** — schema `default:` / `uiDefaultValue:`, constant
      declarations.
    - **API field semantics** — read DTO / resource implementations.
    - **Counts** — enumerate the actual items in source; never trust a
      "3 options" / "4 modes" phrasing from the description.
 
-   For each claim that the source either contradicts OR cannot confirm,
-   emit a `verification_warnings[]` entry with:
-   ```yaml
-   - claim: <the planner's intended phrasing>
-     source_checked: <file:line where verification was attempted>
-     technique: <"enum-grep" | "schema-json" | "datasource-class" | "ui-label" | "default-value" | "openapi-spec" | "test-fallback">
-     finding: <"VERIFIED" | "CONTRADICTED" | "NOT_FOUND">
-     correction: <if CONTRADICTED — what the source actually says; the
-                  planner MUST update the corresponding topic note to
-                  match this. If NOT_FOUND — flag as gap with
-                  recommended_action: "ask user".>
-   ```
+   For EACH claim, emit a `verification_warnings[]` entry with one of
+   these `finding` values (v1.8.0 schema):
 
-   The planner's `topics[].notes` MUST reflect the verified phrasing
-   (not the original Jira description's phrasing) for every claim where
-   `finding: VERIFIED` or `finding: CONTRADICTED`.
+   - **`VERIFIED`** — source agrees with the claim. May be omitted to
+     reduce noise, or included with a one-line audit trail.
+   - **`CONTRADICTED`** — source has a different phrasing. Record BOTH
+     `jira_phrasing` and `source_phrasing` verbatim. **Do NOT pick a
+     winner** — that decision is the user's (per `_shared/source-truth.md`
+     §7).
+   - **`NOT_FOUND`** — Jira describes a behaviour or UI element that
+     has zero trace in the source. Implementation-gap candidate. Record
+     the Jira phrasing and the locations checked (the negative search
+     evidence).
+   - **`AMBIGUOUS`** — multiple plausible source matches with different
+     phrasing; the planner can't pick one without user input.
+
+   **v1.8.0 change — do NOT rewrite the topic notes to match the source.**
+   Leave the claim in the original Jira phrasing in `topics[].notes`. The
+   orchestrator (impl-jira Phase 5.8) presents the discrepancy analysis
+   table to the user and the user decides per-discrepancy whether to
+   document as Jira / document as source / skip + report. The writer
+   applies the decisions in Phase 6.
 
    If `code_repos` was omitted from the input, emit one
-   `verification_warnings[]` entry per user-visible topic with
-   `finding: NOT_FOUND`, `technique: "no-code-repos-provided"`,
-   `correction: "(none possible — caller must provide code_repos or
-   manually verify)"`.
+   `verification_warnings[]` entry per user-visible claim with
+   `finding: NOT_FOUND`, `technique: "no-source-evidence"`,
+   `source_phrasing: "(not verifiable — code_repos was not provided)"`.
 
 9. **Plan the release-notes draft (when applicable).** Inspect the
    `value_increment.frontmatter` from the `jira_reader_handoff`:
@@ -312,15 +322,21 @@ gaps:
     recommended_action: <"ask user" | "mark TODO in draft" |
                          "skip with note in final report">
 
-verification_warnings:                         # added v1.7.0
-  # One entry per user-visible claim that source verification could not
-  # confirm (CONTRADICTED or NOT_FOUND). Empty when every claim is VERIFIED
+verification_warnings:                         # added v1.7.0, refined v1.8.0
+  # One entry per user-visible claim. Empty when every claim is VERIFIED
   # OR when no user-visible claims required verification.
-  - claim:          <the planner's intended phrasing>
-    source_checked: <file:line where verification was attempted | null>
-    technique:      <"enum-grep" | "schema-json" | "datasource-class" | "ui-label" | "default-value" | "openapi-spec" | "test-fallback" | "no-code-repos-provided">
-    finding:        <"CONTRADICTED" | "NOT_FOUND">
-    correction:     <the source's truth, OR "(needs user input)">
+  # Do NOT pick a winner — the orchestrator (impl-jira Phase 5.8) escalates
+  # CONTRADICTED / NOT_FOUND / AMBIGUOUS entries to the user.
+  - number:           <stable index for cross-referencing>
+    claim:            <the planner's intended phrasing (preserve Jira wording)>
+    jira_phrasing:    <verbatim from the Jira description / VI / item>
+    source_phrasing:  <verbatim from source — what the customer actually sees;
+                       "(not verifiable)" if technique was "no-source-evidence">
+    source_location:  <file:line where verification was attempted, or
+                       semicolon-separated list of locations searched (negative
+                       evidence) when finding == NOT_FOUND>
+    technique:        <"enum-grep" | "schema-json" | "datasource-class" | "ui-label" | "menu-builder" | "default-value" | "openapi-spec" | "test-fallback" | "no-source-evidence">
+    finding:          <"VERIFIED" | "CONTRADICTED" | "NOT_FOUND" | "AMBIGUOUS">
 ```
 
 `status: PARTIAL` is returned when the checklist is usable but at least one gap

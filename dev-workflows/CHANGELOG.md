@@ -4,6 +4,82 @@ All notable changes to the **dev-workflows** plugin are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow semver at the plugin level.
 
+## [1.8.0] — 2026-06-16
+
+### Changed (breaking for callers that depended on auto-corrected docs)
+- **`_shared/source-truth.md` principle shift: plugin is the analyst,
+  user is the decision-maker.** Replaces the v1.7.0 "Implementation >
+  Description (code wins, always)" rule with a discrepancy-escalation
+  protocol. When source and description disagree, the plugin presents
+  the analysis to the user as a table and asks per-discrepancy whether
+  to:
+    - document as source suggests (match what shipped)
+    - document as Jira claims (with an intentional-discrepancy marker
+      + bug-report draft so the user can file a defect against the
+      implementation team)
+    - skip and report (omit from docs + record in bug-report draft)
+  The user's PM/sprint/scope context is the deciding factor — not the
+  plugin's keyword grep.
+- **`doc-planner` no longer rewrites topic notes to match the source.**
+  The planner now records both `jira_phrasing` and `source_phrasing`
+  in `verification_warnings[]` and leaves the decision to the
+  orchestrator + user (per `_shared/source-truth.md` §7). Pre-v1.8.0
+  callers that expected the planner to silently correct claims will see
+  the original phrasing preserved until Phase 5.8 resolves it.
+- **`verification_warnings` schema v2.** Fields renamed/added:
+    - `claim` (preserved)
+    - `jira_phrasing` (new, verbatim)
+    - `source_phrasing` (new, verbatim — "(not verifiable)" when no
+      source evidence)
+    - `source_location` (replaces `source_checked`)
+    - `technique` (added `menu-builder`, `no-source-evidence`)
+    - `finding` (added `AMBIGUOUS`; renamed semantic meaning of
+      `NOT_FOUND` to specifically signal implementation-gap)
+    - `number` (new, stable index for cross-reference)
+    - Removed: `correction`, `recommended_action` (decisions are now
+      the orchestrator's responsibility, not the planner's)
+
+### Added
+- **`impl-jira` Phase 5.8 — Discrepancy analysis & user decision.**
+  New phase that runs after doc-planner (Phase 5.7) when there are
+  CONTRADICTED / NOT_FOUND / AMBIGUOUS warnings. Presents an analysis
+  table to the user, asks for a batch decision OR per-discrepancy
+  decisions, builds a `discrepancy_decisions[]` record, and sets
+  `bug_report_destination` if any decisions need a bug-report draft.
+- **`impl-jira` Phase 6 — bug-report draft output.** When
+  `bug_report_destination` is non-null, the writer emits a Markdown
+  file at the auto-discovered vault project folder (same destination
+  policy as the release-notes draft):
+  `<vault-project-folder>/<JIRA_KEY>-implementation-gaps.md`. Format
+  defined in `_shared/source-truth.md` §7.5.
+- **`doc-reviewer` — intentional-discrepancy marker awareness.** The
+  8th review dimension (Source-code accuracy) now recognises an
+  `<!-- intentional-discrepancy: ... -->` HTML comment immediately
+  before doc prose that describes a Jira claim the source contradicts.
+  When the marker is present, the discrepancy is treated as a known
+  recorded gap (NOT BLOCKER). When absent, the BLOCKER rule from
+  v1.7.0 still applies.
+- **`_shared/source-truth.md` §7 — Discrepancy escalation protocol.**
+  Comprehensive new section covering the table format, the batch
+  and per-discrepancy prompts, the `discrepancy_decisions[]` record,
+  the bug-report draft destination + format, and the
+  intentional-discrepancy marker format.
+
+### Migration notes
+- Local automation that invoked `doc-planner` and expected the topic
+  notes to be auto-corrected to source phrasing will now see the
+  original (Jira) phrasing in `topics[].notes`. Look at
+  `verification_warnings[]` to find each discrepancy and apply the
+  decision externally, OR pipe through the new `impl-jira` Phase 5.8.
+- Local automation that parsed the old `verification_warnings`
+  schema needs to read `jira_phrasing` + `source_phrasing` instead of
+  `correction`, and `source_location` instead of `source_checked`.
+- doc-reviewer callers (outside the orchestrator) who don't use the
+  intentional-discrepancy marker will see BLOCKERs for any documented
+  claim that lacks source evidence — same v1.7.0 behaviour. The
+  marker only matters when the documentation is intentionally
+  describing a gap.
+
 ## [1.7.1] — 2026-06-16
 
 ### Fixed

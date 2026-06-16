@@ -680,6 +680,102 @@ ask_user(
 
 ---
 
+## Phase 5.8 — Discrepancy analysis & user decision (added v1.8.0)
+
+> **Hard rule (per `_shared/source-truth.md` §7):** the plugin is the analyst,
+> the user is the decision-maker. When source verification (Phase 5.7
+> doc-planner) finds discrepancies between the Jira description and the
+> shipped source, the orchestrator MUST surface every discrepancy to the
+> user and let the user pick per-discrepancy how to proceed. **Never
+> silently pick a winner.**
+
+Skip this phase if doc-planner's `verification_warnings[]` is empty OR
+contains only entries with `finding: VERIFIED`.
+
+### Step 5.8.1 — Present the analysis table
+
+Build a Markdown table from doc-planner's `verification_warnings[]` entries
+where `finding` is `CONTRADICTED`, `NOT_FOUND`, or `AMBIGUOUS`:
+
+```
+| # | Claim | Jira phrasing | Source phrasing | Source location | Verdict |
+|---|-------|---------------|-----------------|-----------------|---------|
+| 1 | <claim 1> | <jira_phrasing> | <source_phrasing> | <file:line> | CONTRADICTED |
+| 2 | <claim 2> | <jira_phrasing> | (not found) | <searched locations> | NOT_FOUND |
+```
+
+Display the table to the user as informational context BEFORE the first
+ask_user prompt.
+
+### Step 5.8.2 — Ask for the batch decision
+
+```
+ask_user(
+  question: "<N> discrepancies between the Jira description and the source code were found (see table above). How would you like to handle them?",
+  choices: [
+    "Decide per discrepancy (Recommended)",
+    "Apply 'document as source suggests' to ALL — match what shipped",
+    "Apply 'document as Jira claims' to ALL — describe what was promised; orchestrator will draft a bug report for the team",
+    "Apply 'skip and report' to ALL — omit these claims; orchestrator will draft a bug report",
+    "Cancel"
+  ]
+)
+```
+
+### Step 5.8.3 — Per-discrepancy decisions (if user chose "Decide per discrepancy")
+
+For each row in the table, in order, run:
+
+```
+ask_user(
+  question: "Discrepancy #<n>: <claim>\n  - Jira: <jira_phrasing>\n  - Source: <source_phrasing>\n  - Source location: <file:line>\n  - Verdict: <finding>\n\nHow would you like to handle this one?",
+  choices: [
+    "Document as source suggests — match what shipped; users see what's there",
+    "Document as Jira claims — describe the promised behaviour; will add a TODO marker in the docs + a bug-report draft entry so you can file a defect against the team",
+    "Skip this claim entirely and report it — the docs omit this paragraph; the bug-report draft records the gap",
+    "Cancel the whole run"
+  ]
+)
+```
+
+### Step 5.8.4 — Record the decisions
+
+Build a `discrepancy_decisions[]` record (one entry per discrepancy):
+
+```yaml
+discrepancy_decisions:
+  - number:           <from the table>
+    claim:            <copied from verification_warnings>
+    jira_phrasing:    <copied>
+    source_phrasing:  <copied>
+    source_location:  <copied>
+    finding:          <CONTRADICTED | NOT_FOUND | AMBIGUOUS>
+    decision:         <"document-as-source" | "document-as-jira" | "skip-and-report">
+```
+
+Pass this record to Phase 6 (writer).
+
+### Step 5.8.5 — Set the bug-report destination
+
+If ANY entry in `discrepancy_decisions[]` has decision `document-as-jira`
+OR `skip-and-report`, set `bug_report_destination` to:
+
+```
+<vault-project-folder>/<JIRA_KEY>-implementation-gaps.md
+```
+
+— where `<vault-project-folder>` is the same path auto-discovered in
+Phase 1 Q6 for the release-notes destination (typically
+`<vault>/Projects/Products/**/<JIRA_KEY>*/`). **Same hard rule as for
+release notes: NEVER `/tmp/`** — container restarts wipe it. Phase 6
+writes the bug-report draft to this path; the file format is defined in
+`_shared/source-truth.md` §7.5.
+
+If all decisions are `document-as-source`, `bug_report_destination` is
+null and no bug-report draft is emitted.
+
+---
+
 ## Phase 6 — Write Documentation / Epics
 
 ### Use case A — Feature documentation
@@ -687,6 +783,7 @@ ask_user(
 Synthesise a feature documentation page using:
 - `jira-reader` handoff (VI goal, linked items, PR context)
 - `diff-summarizer` handoffs for each repo (per-PR summaries, aggregate summaries)
+- `discrepancy_decisions[]` (from Phase 5.8, possibly empty) — applies per-claim
 
 **Citation rule — mandatory:** Every factual claim in the output MUST include:
 - The originating Jira key as a wikilink: `[[KEY]]`
@@ -698,6 +795,32 @@ The ActiveGate auto-update backend was extended to respect maintenance windows
 ([[MGD-1127]], [PR #179969](https://bitbucket.lab.dynatrace.org/projects/RX/repos/cluster/pull-requests/179969)):
 the scheduler now checks the configured update window before dispatching an update job.
 ```
+
+**Discrepancy-decision application (added v1.8.0):** For every user-visible
+claim that has an entry in `discrepancy_decisions[]`:
+
+- `decision: "document-as-source"` — write the claim using `source_phrasing`
+  verbatim. No marker needed.
+- `decision: "document-as-jira"` — write the claim using `jira_phrasing`,
+  AND insert this intentional-discrepancy marker immediately before the
+  affected prose (anywhere from the enclosing paragraph to the enclosing
+  section header — pick whichever scope makes the marker readable in the
+  diff):
+
+  ```markdown
+  <!-- intentional-discrepancy: Jira <VI_KEY> describes
+  "<jira_phrasing>" but the source at <source_location> currently has
+  "<source_phrasing>". User decision: document Jira phrasing pending
+  implementation. See <bug_report_destination> gap #<number>. -->
+  ```
+
+  doc-reviewer's Source-code accuracy dimension (Phase 7) recognises this
+  marker and treats the discrepancy as intentional (NOT a BLOCKER).
+
+- `decision: "skip-and-report"` — omit the claim from the docs entirely.
+  If the claim was the entire content of a topic, omit the topic. If it
+  was one sentence in a paragraph, drop the sentence. The bug-report
+  draft still records the gap (Step 6.5 below).
 
 Document structure (adapt based on VI content):
 
@@ -739,6 +862,51 @@ Document structure (adapt based on VI content):
 Write to the output path confirmed in Phase 1.
 **Never write inside `<VAULT_PATH>/_archive/`.**
 **Never write outside cwd unless user provided an explicit absolute path.**
+
+### Use case A — Bug-report draft (separate file, added v1.8.0)
+
+Only generated if `bug_report_destination` (set in Phase 5.8 Step 5.8.5) is
+non-null — i.e., the user picked `document-as-jira` OR `skip-and-report` for
+at least one discrepancy.
+
+Write a Markdown file at `<bug_report_destination>` (typically
+`<vault-project-folder>/<JIRA_KEY>-implementation-gaps.md`):
+
+```markdown
+# <JIRA_KEY> — Implementation gaps found during documentation
+
+Generated <YYYY-MM-DD>. File these as defects against the implementation
+team (or amend the Jira ticket if the gap is intentional).
+
+> This file was generated by `dev-workflows:impl:jira:docs:` during the
+> docs PR for [[<JIRA_KEY>]]. Each gap below corresponds to a place where
+> the Jira description and the source code disagreed, AND the user chose
+> not to document the source-side phrasing.
+
+<for each entry in discrepancy_decisions[] where decision != "document-as-source":>
+
+## Gap <number>: <claim>
+
+- **Jira phrasing**: <jira_phrasing>
+- **Source state**: <source_phrasing>
+- **Source location**: <source_location>
+- **Verdict**: <finding>
+- **User decision in docs**: <decision>
+- **Docs status**: <"described as Jira claims, awaiting implementation"
+                    if decision == "document-as-jira"
+                    | "omitted from docs"
+                    if decision == "skip-and-report">
+- **Suggested action**: file a Jira defect against the team that owns
+  `<source_location>`'s component. Reference [[<VI_KEY>]] and link this
+  document.
+
+<endfor>
+```
+
+The bug-report draft uses the same hard rules as the release-notes draft:
+NEVER `/tmp/`, NEVER inside the docs repo. The user reviews these gaps,
+files them as Jira defects against the implementation team, and may hold
+the docs PR until they're resolved.
 
 ### Use case A — Release-notes draft (separate file)
 
