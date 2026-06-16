@@ -4,6 +4,26 @@ All notable changes to the **dev-workflows** plugin are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow semver at the plugin level.
 
+## [1.7.1] — 2026-06-16
+
+### Fixed
+- **`doc-planner` — drop changelog-only frontmatter updates.** New hard
+  rule: if a target's `topics:` is empty AND `frontmatter_updates.other:`
+  is empty AND the only proposed change is a `frontmatter_updates.changelog`
+  entry, drop the target from the checklist entirely. A changelog entry
+  without a corresponding content change is meaningless — the changelog
+  field is meant to summarise *what changed on this page*, and a "page
+  unchanged" entry has no value to readers.
+  Especially relevant for auto-generated schema-table pages
+  (`{{settings-api-table-standalone}}` body) where the schema JSON's own
+  `"version":` field tracks field additions; the doc page just re-renders
+  it. Convention is verifiable by sampling siblings: when 90%+ of pages
+  in the same directory lack a `changelog:`, the planner must respect
+  that convention. Caught during PRODUCT-14902 review where v1.6.0
+  added a changelog to `builtin-deployment-activegate-updates.md` whose
+  body was unchanged (only 1 of 439 sibling schema pages had a changelog
+  precedent).
+
 ## [1.7.0] — 2026-06-16
 
 ### Added

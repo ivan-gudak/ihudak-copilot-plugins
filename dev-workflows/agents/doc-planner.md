@@ -352,6 +352,20 @@ least one target — the caller must surface those to the user before approval.
   `checklist`. Release notes are emitted via the top-level
   `release_notes_block` and written to a destination outside the docs repo by
   the orchestrator (see `impl-jira` Phase 6 for the destination policy).
+- NEVER propose a changelog-only frontmatter update on a page that has no
+  other planned change (added v1.7.1). Specifically: if the target's
+  `topics:` is empty AND `frontmatter_updates.other:` is empty AND the
+  only proposed change is `frontmatter_updates.changelog`, **drop the
+  target from the checklist entirely**. A changelog entry without a
+  corresponding content change is meaningless (the changelog is supposed
+  to summarise *what changed on this page*, and nothing did). This rule
+  applies especially to auto-generated schema-table pages whose body is
+  `{{settings-api-table-standalone}}` (or similar directive) — the schema
+  itself has its own version field (`"version": "x.y.z"` in the schema
+  JSON) that tracks field additions; the doc page just re-renders it.
+  Verify by sampling sibling pages in the same directory: if 90%+ lack a
+  `changelog:` field, the convention is "no changelog" and the planner
+  must respect it.
 - NEVER include Bitbucket / GitHub / GitLab PR URLs inside a release-notes
   entry's `prose` field. Release notes are user-facing; only the public Jira
   URL is acceptable inside the rendered text. PR URLs may appear in the
