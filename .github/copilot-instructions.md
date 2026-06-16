@@ -186,23 +186,33 @@ one passing test for each new or changed behaviour before the workflow is consid
 
 ## Updating the installed plugin after editing
 
-After editing files in this repo and pushing, update the installed copies on each machine:
+After editing files in this repo, **commit and push first**, then run the native
+Copilot CLI update command on each machine. This fetches the latest from GitHub
+and updates both the installed files and the registry in `~/.copilot/config.json`
+(which `copilot plugin list` reads):
 
-**Linux (this dev machine):**
 ```bash
-cp -r dev-workflows/. ~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/
-cp -r dt-style-guide/. ~/.copilot/installed-plugins/ihudak-copilot-plugins/dt-style-guide/
-cp -r obsidian-llm-wiki/. ~/.copilot/installed-plugins/ihudak-copilot-plugins/obsidian-llm-wiki/
+# Update one plugin
+copilot plugin update dev-workflows@ihudak-copilot-plugins
+
+# Or update everything from every marketplace at once
+copilot plugin update --all
 ```
 
-**Windows (via WSL):**
-```bash
-cp -r dev-workflows/. /mnt/c/Users/ivan.gudak/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/
-cp -r dt-style-guide/. /mnt/c/Users/ivan.gudak/.copilot/installed-plugins/ihudak-copilot-plugins/dt-style-guide/
-cp -r obsidian-llm-wiki/. /mnt/c/Users/ivan.gudak/.copilot/installed-plugins/ihudak-copilot-plugins/obsidian-llm-wiki/
-```
+> **Do not** use `cp -r` or `rsync` to sync from the source repo into
+> `~/.copilot/installed-plugins/`. That updates the plugin files but leaves the
+> version field in `~/.copilot/config.json` stale, so `copilot plugin list` keeps
+> reporting the old version even though the new code is in place. The CLI's own
+> `plugin update` command is the only safe way to keep both in sync.
 
-On any other machine, `copilot plugin install dev-workflows@ihudak-copilot-plugins` handles everything natively after the marketplace is registered.
+If you genuinely need to test local edits before pushing (e.g., iterating on a
+SKILL.md without a commit round-trip), you can use `rsync` as a temporary
+workaround — but remember it will leave the registry version stale. After your
+final commit + push, run `copilot plugin update <name>@ihudak-copilot-plugins`
+to restore parity.
+
+On a fresh machine, `copilot plugin install dev-workflows@ihudak-copilot-plugins`
+handles everything natively after the marketplace is registered.
 
 ## Marketplace manifest
 
