@@ -4,6 +4,27 @@ All notable changes to the **dev-workflows** plugin are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow semver at the plugin level.
 
+## [1.8.1] — 2026-06-16
+
+### Fixed
+- **`doc-planner` — no Jira keys in `changelog:` entries.** New hard rule:
+  proposed `frontmatter_updates.changelog.entry` text MUST NOT embed the
+  Jira key (e.g. `(PRODUCT-14902)` suffix). The Jira reference is carried
+  by the commit message and the file diff, not by the customer-visible
+  page changelog. Verified against `dynatrace-docs`: fewer than 5 of
+  5500+ pre-existing changelog entries cite an issue key — basically
+  zero convention support. Caught during PRODUCT-14902 review where
+  v1.8.0 added `(PRODUCT-14902)` to 5 changelog entries.
+- **`doc-planner` — cross-product reciprocal touches stay product-scoped.**
+  New hard rule: when a "minimal touch" target is on an existing page
+  belonging to product X but the change is about a feature shipped by
+  product Y, the writer's note must be a one-line cross-link to product
+  Y's dedicated page — NOT a copy of product Y's implementation detail
+  (throttling rules, enum values, precedence, etc.). Caught during
+  PRODUCT-14902 review where v1.8.0 added per-pool ActiveGate
+  throttling detail to the OneAgent update page (OneAgent has no
+  per-pool throttling; readers don't need that depth on the OA page).
+
 ## [1.8.0] — 2026-06-16
 
 ### Changed (breaking for callers that depended on auto-corrected docs)

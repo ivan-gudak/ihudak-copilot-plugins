@@ -72,9 +72,16 @@ For each write target:
    gap (see step 7).
 
 3. **Plan frontmatter updates.**
-   - `changelog:` — append a dated entry naming the Jira key and a 1-line
-     change summary. Create the field if it doesn't exist on an extended page.
-     This is mandatory on every target.
+   - `changelog:` — append a dated entry with a 1-line change summary.
+     **Do NOT embed the Jira key in the entry text** (v1.8.1 — verified:
+     <5 of 5500+ pre-existing changelog entries in `dynatrace-docs` cite
+     an issue key, so embedding one is non-convention). The commit message
+     and the file diff carry the Jira traceability; the page changelog is
+     for reader-visible "what changed" prose. Format: `"YYYY-MM-DD
+     <change summary>"` — e.g. `"2026-06-16 Added target version, update
+     mode, and shared update windows for Environment ActiveGate"`. Create
+     the field if it doesn't exist on an extended page. Mandatory on
+     every target.
    - `published` — creation date for new pages only.
    - `meta.generation`, `readtime` — if present on adjacent pages, include.
      Estimate `readtime` from approximate word count.
@@ -368,6 +375,28 @@ least one target — the caller must surface those to the user before approval.
   `checklist`. Release notes are emitted via the top-level
   `release_notes_block` and written to a destination outside the docs repo by
   the orchestrator (see `impl-jira` Phase 6 for the destination policy).
+- NEVER include a Jira key inside the `frontmatter_updates.changelog.entry`
+  text (added v1.8.1). The changelog field is reader-visible prose
+  summarising "what changed on this page"; the Jira reference is carried
+  by the commit message and the file diff, not by the page itself. The
+  one-line summary should be customer-readable. Verify against the repo
+  convention by sampling: across 5500+ pre-existing entries in
+  `dynatrace-docs`, fewer than 5 cite an issue key — basically zero.
+- NEVER let a **cross-product reciprocal touch** introduce content that
+  is specific to the OTHER product's implementation (added v1.8.1). When
+  a target is flagged as a "minimal touch" parity reference on an
+  existing page belonging to product X, and the change is about a
+  feature shipped by product Y, the writer's note should be a one-line
+  pointer + cross-link to product Y's dedicated page — NOT a copy of
+  product Y's implementation detail (throttling rules, enum values,
+  precedence, etc.). Example: extending `oneagent-update.md` to mention
+  that update windows are shared with ActiveGate is appropriate
+  (relevant to OneAgent readers); copying the per-pool ActiveGate
+  throttling rule onto the OneAgent page is overkill (OneAgent has no
+  per-pool throttling; the AG page already covers it). For "minimal
+  touch" targets, plan `topics[].notes` as: "Add a one-line cross-link
+  to <other-product-page#anchor>. Do NOT inline implementation detail
+  that belongs on <other-product-page>."
 - NEVER propose a changelog-only frontmatter update on a page that has no
   other planned change (added v1.7.1). Specifically: if the target's
   `topics:` is empty AND `frontmatter_updates.other:` is empty AND the

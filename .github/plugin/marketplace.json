@@ -14,7 +14,7 @@
       "name": "dev-workflows",
       "source": "dev-workflows",
       "description": "Structured development workflow skills — impl-dispatcher (help), impl:code (classify → plan → branch → baseline → implement → test → Opus review → maintenance), impl-docs (one-shot doc edits), impl-jira (Jira-driven feature docs and Epic drafting), fix-vuln (CVE remediation), upgrade (dependency upgrades), api-guideline-reviewer, and guideline-reviewer. Eight user-facing orchestrator skills plus nineteen dispatched sub-agents (risk-planner, code-review, doc-reviewer, epic-reviewer, test-baseliner, test-writer, review-fixer, doc-fixer, docs-style-checker, doc-planner, doc-location-finder, jira-reader, diff-summarizer, code-scanner, impl-maintenance, vuln-research, vuln-fixer, upgrade-planner, upgrade-executor). Three notification/context hooks.",
-      "version": "1.8.0",
+      "version": "1.8.1",
       "homepage": "https://github.com/ihudak/ihudak-copilot-plugins/tree/main/dev-workflows"
     },
     {
