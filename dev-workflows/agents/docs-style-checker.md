@@ -35,29 +35,40 @@ Refuse to run without `repo_root` and at least one entry in `files`.
 
 ## Detection order (first match wins)
 
+> **Hard rule before anything else:** if any detected linter ERRORS out at
+> runtime (missing binary, non-zero exit with no parseable output, timeout),
+> the agent MUST attempt the `dt-style-checker` fallback (step 5) before
+> returning `status: ERROR`. The fallback is preferred over no check at all
+> ("some check is better than no check"). Only return `ERROR` if both the
+> primary linter AND the dt-style-checker fallback are unavailable or fail.
+
 1. **Vale via `.vale.ini`** — if `<repo_root>/.vale.ini` exists, run
    `vale --output=JSON <files>` from the repo root. Parse the JSON output into
-   finding records. Set `linter: vale`.
+   finding records. Set `linter: vale`. **On non-zero exit / missing binary
+   → go to step 5 (dt-style-checker fallback), not ERROR.**
 
 2. **Project-specific lint script** — if `<repo_root>/package.json` has a
    script matching `*:lint` or `lint:*` that covers markdown (e.g.
    `docs:lint`, `site:lint`, `lint:md`), run it. Parse stderr/stdout for
    line-level violations. If the script lints the whole tree, filter violations
    to the target files only. Set `linter: yarn:<script>` or `npm:<script>`.
+   **On failure → go to step 5, not ERROR.**
 
 3. **Generic markdown linter** — if `<repo_root>/.markdownlint.json(c)` or
    `<repo_root>/.remarkrc*` exists AND the corresponding binary is available
    on PATH, run it on the target files. Set `linter: markdownlint` or
-   `linter: remark`.
+   `linter: remark`. **On failure → go to step 5, not ERROR.**
 
-4. **Nothing configured** — no project-level linter detected. Before returning
-   `NOT_CONFIGURED`, check if the `dt-style-guide` plugin is installed:
+4. **Nothing configured** — no project-level linter detected. Go to step 5.
+
+5. **`dt-style-checker` fallback (always tried as a final attempt).** Check
+   if the `dt-style-guide` plugin is installed:
 
    ```
    Check if path exists: ~/.copilot/installed-plugins/ihudak-copilot-plugins/dt-style-guide/agents/dt-style-checker.md
    ```
 
-   - **If the file exists** — invoke the `dt-style-checker` agent as a fallback:
+   - **If the file exists** — invoke the `dt-style-checker` agent:
      - `agent_type: "dt-style-guide:dt-style-checker"`
      - Pass input block:
 
@@ -69,11 +80,18 @@ Refuse to run without `repo_root` and at least one entry in `files`.
      Map the `dt-style-checker` return into this agent's output schema:
      - `dt-style-checker` returned violations → `status: VIOLATIONS_FOUND`, `linter: dt-style-checker`, `violations: <mapped>`
      - `dt-style-checker` returned zero violations → `status: OK`, `linter: dt-style-checker`
-     - `dt-style-checker` errored → `status: ERROR`, `linter: dt-style-checker`, `error: <reason>`
+     - `dt-style-checker` errored → `status: ERROR`, `linter: dt-style-checker`, `error: <reason>` (only NOW return ERROR)
 
-   - **If the file does not exist** — return `status: NOT_CONFIGURED`,
+     If the primary linter (steps 1–3) was the one that failed (not step 4
+     "nothing configured"), prefix the `error` field with a note explaining
+     the fallback was used because the primary linter was unavailable:
+     `error: "primary linter '<vale|...>' failed (<reason>); dt-style-checker fallback ran successfully"` for the OK / VIOLATIONS_FOUND cases, OR
+     `error: "primary linter '<vale|...>' failed (<reason>); dt-style-checker fallback also failed (<reason>)"` for the ERROR case.
+
+   - **If the file does not exist** — only NOW return `status: NOT_CONFIGURED`,
      `violations: []`. The main command treats this as a no-op and proceeds
-     straight to Phase 7 (doc-reviewer is still the correctness gate).
+     straight to Phase 7 (doc-reviewer is still the correctness gate). This
+     is the **only** path that yields `NOT_CONFIGURED`.
 
 ## Violation schema
 

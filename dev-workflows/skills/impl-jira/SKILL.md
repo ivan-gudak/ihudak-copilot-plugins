@@ -649,6 +649,14 @@ write_targets:        <paste confirmed list from Phase 5.6>
 screenshots:          <user-provided paths from Phase 1, possibly empty>
 screenshot_staging_dir: <from Phase 1 Q6 — typically <vault-project-folder>/Doc screenshots/.
                         NEVER /tmp/ — container restarts wipe it.>
+code_repos:           <added v1.7.0 — array of {slug, path} for every code repo
+                       used by diff-summarizer in Phase 5. doc-planner uses
+                       these to verify every user-visible claim (option
+                       names, mode names, UI labels, default values, counts)
+                       against the actual source — enums, schema JSON,
+                       constants, data-source classes. See
+                       ~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/source-truth.md.
+                       Format: [{slug: "cluster", path: "/workspace/cluster-repo"}, ...]>
 repo_root:            <absolute path to the docs repo root — typically /workspace/dynatrace-docs;
                        do NOT use cwd's git root here, cwd may be a different repo>
 ```
@@ -837,7 +845,17 @@ Create `<cwd>/<JIRA_KEY>/` directory if not present.
 
 ---
 
-## Phase 6.7 — Style Check (before reviewer)
+## Phase 6.7 — Style Check (before reviewer) — MANDATORY
+
+> **Hard rule (added v1.7.0):** Phase 6.7 MUST run. The orchestrator MUST
+> NOT skip the style check based on its own knowledge of which linters are
+> installed. The `docs-style-checker` sub-agent owns linter detection AND
+> the dt-style-checker fallback when the primary linter errors out. The
+> orchestrator's job is to dispatch it and act on the return.
+>
+> "Some check is better than no check." Even when Vale is missing,
+> `docs-style-checker` falls back to `dt-style-checker` from the
+> `dt-style-guide` plugin (when installed). The orchestrator never skips.
 
 ### Use case A — docs-style-checker
 
@@ -853,11 +871,12 @@ files:     <absolute paths of every file written or modified in Phase 6>
 
 Act on the return:
 
-- **`status: NOT_CONFIGURED`** — no repo linter detected. `docs-style-checker`
-  will automatically attempt a `dt-style-checker` fallback if the
-  `dt-style-guide` plugin is installed (see docs-style-checker detection step 4).
-  If `dt-style-checker` also returns `NOT_CONFIGURED` (plugin not installed),
-  proceed to Phase 7. `doc-reviewer` will still check correctness/completeness.
+- **`status: NOT_CONFIGURED`** — no repo linter AND no `dt-style-checker`
+  available. The agent has already exhausted both the primary detection
+  (Vale / project lint / markdownlint) AND the `dt-style-checker` fallback.
+  Proceed to Phase 7. `doc-reviewer` is the only style/correctness gate.
+  Record this as a known gap in the Phase 9 report so the user knows no
+  prose linter ran.
 - **`status: OK`** — linter ran, zero violations. Proceed to Phase 7.
 - **`status: VIOLATIONS_FOUND`** — invoke `doc-fixer` sub-agent:
 
@@ -882,10 +901,21 @@ Act on the return:
 - **`status: ERROR`** — surface the error reason:
   ```
   ask_user(
-    question: "Style checker encountered an error: <reason>. How would you like to proceed?",
-    choices: ["Proceed to review without style check", "Cancel and fix locally"]
+- **`status: ERROR`** — only reached when BOTH the primary linter AND the
+  `dt-style-checker` fallback failed. Surface the error reason and proceed
+  to Phase 7 (doc-reviewer is the safety net):
+  ```
+  ask_user(
+    question: "Style checker encountered an error: <reason>. Both the primary linter and the dt-style-checker fallback failed. doc-reviewer will still run as the correctness gate. How would you like to proceed?",
+    choices: [
+      "Proceed to doc-reviewer (Recommended) — review is still the correctness gate",
+      "Cancel and fix locally"
+    ]
   )
   ```
+  (The previous "Proceed to review without style check" option was removed
+  in v1.7.0 — see hard rule at the top of Phase 6.7. The orchestrator now
+  always tries the fallback before declining a style check.)
 
 ### Use case B — dt-style-checker for Epics
 
@@ -918,13 +948,17 @@ Act on the return:
     choices: ["Proceed to review anyway — reviewer may still PASS", "Show remaining violations and let me fix manually", "Cancel"]
   )
   ```
-- **Error** — surface the error reason:
-  ```
-  ask_user(
-    question: "dt-style-checker encountered an error: <reason>. How would you like to proceed?",
-    choices: ["Proceed to review without style check", "Cancel and fix locally"]
-  )
-  ```
+  - **Error** — surface the error reason and proceed to Phase 7
+    (epic-reviewer is the correctness gate):
+    ```
+    ask_user(
+      question: "dt-style-checker encountered an error: <reason>. epic-reviewer (Opus) will still run as the correctness gate. How would you like to proceed?",
+      choices: [
+        "Proceed to epic-reviewer (Recommended)",
+        "Cancel and fix locally"
+      ]
+    )
+    ```
 
 **If not installed** — proceed directly to Phase 7 (existing behaviour preserved).
 
@@ -938,7 +972,7 @@ Invoke `doc-reviewer` sub-agent:
 
 - `agent_type: "dev-workflows:doc-reviewer"`
 - Pass the output file(s) written in Phase 6, the stated goal, the repo path (cwd), and the `model_routing` block
-- Additionally pass: the `doc-planner` checklist (Phase 5.7), `diff-summarizer` outputs (Phase 5), and the style-check report (Phase 6.7 output, or `status: NOT_CONFIGURED` if no linter ran)
+- Additionally pass: the `doc-planner` checklist (Phase 5.7), `diff-summarizer` outputs (Phase 5), the style-check report (Phase 6.7 output, including any `dt-style-checker` fallback notes), and **`code_repos: <array of {slug, path}>` (added v1.7.0)** so the reviewer can verify documented user-visible claims against the actual source code per `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/source-truth.md` — the 8th review dimension is "Source-code accuracy"
 
 Act on the verdict:
 

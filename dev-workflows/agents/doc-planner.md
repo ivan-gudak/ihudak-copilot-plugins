@@ -31,6 +31,15 @@ screenshot_staging_dir: <absolute path where the writer should stage screenshots
                          `<repo_root>/../<JIRA_KEY>-screenshots/` (sibling of
                          the docs repo, still persistent) and emit a planner
                          warning in `gaps`.>
+code_repos:             <added v1.7.0 — array of {slug, path} for every code repo
+                         used by diff-summarizer. Required when synthesising any
+                         user-visible documentation. Used in step 9 below to
+                         verify documented claims against the source. Format:
+                         [{slug: "cluster", path: "/workspace/cluster-repo"}, ...].
+                         When omitted, EVERY user-visible claim in the output
+                         must be flagged with a `verification_warnings` entry
+                         (recommended_action: "ask user") — never silently
+                         emit unverified content.>
 repo_root:              <absolute path to the docs repo root>
 ```
 
@@ -148,6 +157,48 @@ For each write target:
    - `"skip with note in final report"` — the gap is recorded in the final
      `### Skipped items` section.
 
+8.5 **Source-code verification pass (added v1.7.0 — mandatory per
+   `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/source-truth.md`).**
+
+   For every user-visible claim the planner intends to put in any topic's
+   `notes:` (or in the release-notes prose at step 9 below), verify the
+   claim against the actual source code in `code_repos[].path`. Apply the
+   techniques from `_shared/source-truth.md` §3:
+   - **Enum / dropdown options** — grep for `*.schema.json` under
+     `<repo_path>/**/settings-schemas/`, then for `*DataSource.java` /
+     `*Provider.java` classes referenced by the schema's
+     `datasource.identifier`. Read the canonical enum / option values.
+   - **UI labels** — grep for `displayName:`, `addItemButton:`,
+     `label:` constants. Match the exact string the doc will use.
+   - **Default values** — schema `default:` / `uiDefaultValue:`, constant
+     declarations.
+   - **API field semantics** — read DTO / resource implementations.
+   - **Counts** — enumerate the actual items in source; never trust a
+     "3 options" / "4 modes" phrasing from the description.
+
+   For each claim that the source either contradicts OR cannot confirm,
+   emit a `verification_warnings[]` entry with:
+   ```yaml
+   - claim: <the planner's intended phrasing>
+     source_checked: <file:line where verification was attempted>
+     technique: <"enum-grep" | "schema-json" | "datasource-class" | "ui-label" | "default-value" | "openapi-spec" | "test-fallback">
+     finding: <"VERIFIED" | "CONTRADICTED" | "NOT_FOUND">
+     correction: <if CONTRADICTED — what the source actually says; the
+                  planner MUST update the corresponding topic note to
+                  match this. If NOT_FOUND — flag as gap with
+                  recommended_action: "ask user".>
+   ```
+
+   The planner's `topics[].notes` MUST reflect the verified phrasing
+   (not the original Jira description's phrasing) for every claim where
+   `finding: VERIFIED` or `finding: CONTRADICTED`.
+
+   If `code_repos` was omitted from the input, emit one
+   `verification_warnings[]` entry per user-visible topic with
+   `finding: NOT_FOUND`, `technique: "no-code-repos-provided"`,
+   `correction: "(none possible — caller must provide code_repos or
+   manually verify)"`.
+
 9. **Plan the release-notes draft (when applicable).** Inspect the
    `value_increment.frontmatter` from the `jira_reader_handoff`:
 
@@ -260,6 +311,16 @@ gaps:
   - description: <what's missing from inputs>
     recommended_action: <"ask user" | "mark TODO in draft" |
                          "skip with note in final report">
+
+verification_warnings:                         # added v1.7.0
+  # One entry per user-visible claim that source verification could not
+  # confirm (CONTRADICTED or NOT_FOUND). Empty when every claim is VERIFIED
+  # OR when no user-visible claims required verification.
+  - claim:          <the planner's intended phrasing>
+    source_checked: <file:line where verification was attempted | null>
+    technique:      <"enum-grep" | "schema-json" | "datasource-class" | "ui-label" | "default-value" | "openapi-spec" | "test-fallback" | "no-code-repos-provided">
+    finding:        <"CONTRADICTED" | "NOT_FOUND">
+    correction:     <the source's truth, OR "(needs user input)">
 ```
 
 `status: PARTIAL` is returned when the checklist is usable but at least one gap

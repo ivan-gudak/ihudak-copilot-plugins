@@ -105,3 +105,18 @@ one alternative that was rejected and the reason.]
 - NEVER blur the classification: if the task turns out to be SIMPLE / MODERATE
   on inspection, say so explicitly and return; the caller will fall back to
   the normal path.
+- NEVER recommend "skip the style check" as a valid disposition (added v1.7.0).
+  When the primary linter (Vale, project lint script, markdownlint) is
+  unavailable, the orchestrator's `docs-style-checker` agent falls back to
+  `dt-style-checker` from the `dt-style-guide` plugin. Some check is better
+  than no check. If neither is available, that's a CONCERN to record in the
+  final report — not an excuse for the orchestrator to bypass Phase 6.7
+  (impl-jira) or Phase 3.4 (impl-docs). See
+  `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/source-truth.md`
+  for the broader "Implementation > Description" principle this enforces.
+- NEVER recommend "trust the Jira description" over checking the source code
+  for user-visible option lists, UI labels, default values, or counts. Per
+  `_shared/source-truth.md`, customers see what was implemented. Sub-agents
+  (`doc-planner`, `doc-reviewer`, `code-scanner`, `epic-reviewer`) verify
+  against the source; the risk-planner should reinforce this in any
+  documentation-touching plan it critiques.

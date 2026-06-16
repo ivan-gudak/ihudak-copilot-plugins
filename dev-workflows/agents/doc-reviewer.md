@@ -24,6 +24,12 @@ repo: <absolute path to repo root>
 changed_files:
   - path: <relative path>
     summary: <one-line description of the change>
+code_repos:                # added v1.7.0 — REQUIRED for any user-visible docs
+  - slug: <e.g. "cluster">
+    path: <absolute path to the local clone>
+  # ... one entry per source repo the docs describe.
+  # When omitted, dimension #8 (Source-code accuracy) is downgraded to "not
+  # verifiable" and the orchestrator is warned in the report Summary.
 model_routing: <block from orchestrator>
 ```
 
@@ -67,6 +73,49 @@ For each changed file, evaluate all applicable dimensions:
 - YAML front matter (if present) is valid: no duplicate keys, no unclosed quotes.
 - Tags and aliases are arrays, not bare strings.
 - Internal `[[links]]` use consistent capitalisation.
+
+### 8. Source-code accuracy (added v1.7.0)
+
+**The principle**: Customers see what was implemented, not what the Jira
+ticket described. See
+`~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/source-truth.md`
+for the full policy.
+
+Spot-check 3–5 user-visible claims per file against the source code in
+`code_repos[].path`. Verify the following types of claim with the highest
+priority:
+
+- **Enum / option lists** (e.g. "three options: A / B / C") — grep for
+  `*.schema.json` and `*DataSource.java` / `*Provider.java`; count and
+  name the actual options.
+- **UI labels** (e.g. "select **Add update window**") — grep for
+  `displayName:`, `addItemButton:`, `label:` in source. The doc string
+  must appear verbatim in the source.
+- **Default values** — schema `default:`, `uiDefaultValue:`, constant
+  declarations.
+- **API field semantics, enum values, validation rules** — read the
+  endpoint resource / DTO files in the source.
+- **Headline counts** ("3 options", "4 modes", "supports N variants") —
+  count the actual enumeration in source.
+
+**Severity rules for source-code findings:**
+- Documented option / label / count that does NOT appear in source →
+  **BLOCKER**. Customer-facing wrongness will cause support tickets.
+- Documented option that's STALE (matches an older source version) →
+  **BLOCKER** if the source has changed; **CONCERN** if the doc
+  describes intent that diverged but is still accurate for the
+  current release.
+- Source has additional options not documented (e.g. doc says 3 but
+  source has 4) → **BLOCKER**.
+- Source has the value but with a slightly different phrasing (e.g.
+  doc says "Older stable", source `displayName` says "Older stable
+  (currently 1.343)") → **CONCERN** with suggestion to use the
+  canonical phrasing.
+
+**When `code_repos` is empty/omitted:** record one CONCERN per file:
+"Source-code accuracy: not verifiable — `code_repos` input was not
+provided to the reviewer. Recommend the orchestrator re-run with
+explicit `code_repos:` to enable this dimension."
 
 ---
 

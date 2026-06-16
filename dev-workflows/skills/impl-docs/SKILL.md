@@ -185,9 +185,58 @@ Apply the approved doc changes:
 
 ---
 
+## Phase 3.4 — Style Check (added v1.7.0 — MANDATORY)
+
+> **Hard rule:** Phase 3.4 MUST run. Some check is better than no check.
+> The `docs-style-checker` sub-agent owns linter detection AND the
+> `dt-style-checker` fallback when the primary linter errors out. Never
+> skip on the basis of "I think Vale isn't installed" — let the sub-agent
+> figure it out.
+
+Invoke `docs-style-checker` on the files changed in Phase 3:
+
+```
+task(
+  agent_type: "dev-workflows:docs-style-checker",
+  mode:       "sync",
+  description:"Style check",
+  prompt:     "repo_root: <absolute path to the repo root>
+               files: [<absolute paths of every file changed in Phase 3>]"
+)
+```
+
+Act on the return:
+
+- **`status: OK`** — proceed to Phase 3.5.
+- **`status: NOT_CONFIGURED`** — no repo linter AND no `dt-style-checker`
+  available. Record as a known gap in the Phase 5 report. Proceed to
+  Phase 3.5 (doc-reviewer is the correctness gate).
+- **`status: VIOLATIONS_FOUND`** — invoke `doc-fixer` sub-agent:
+
+  ```
+  task(
+    agent_type: "dev-workflows:doc-fixer",
+    mode:       "sync",
+    description:"Apply style fixes",
+    prompt:     "Task description: docs update for <repo> — <goal>
+                 Reviewer or style-checker output: <paste full docs-style-checker output>
+                 Project root: <absolute-repo-root>
+                 Severities to fix: BLOCKER, MAJOR, MINOR"
+  )
+  ```
+
+  Then re-run `docs-style-checker` once. If violations remain after the
+  fix cycle, surface to the user (cap: 1 fix cycle + 1 re-check).
+
+- **`status: ERROR`** — only reached when BOTH the primary linter AND the
+  `dt-style-checker` fallback failed. Record the error in the Phase 5
+  report and proceed to Phase 3.5 (doc-reviewer is the safety net).
+
+---
+
 ## Phase 3.5 — Docs Review (via `doc-reviewer` sub-agent)
 
-After all edits are complete, invoke the `doc-reviewer` sub-agent for a comprehensive review:
+After all edits and the style-check cycle are complete, invoke the `doc-reviewer` sub-agent for a comprehensive review:
 
 ```
 task(
@@ -197,6 +246,7 @@ task(
   prompt:     "goal: <one-sentence goal from Phase 2>
                repo: <absolute-repo-root>
                changed_files: [<relative path> — <one-line summary>, ...]
+               code_repos: [<optional list of {slug, path} for any source repos referenced by the docs; enables Source-code accuracy review dimension per _shared/source-truth.md>]
                <model_routing block>"
 )
 ```

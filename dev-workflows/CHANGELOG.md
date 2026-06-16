@@ -4,6 +4,82 @@ All notable changes to the **dev-workflows** plugin are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow semver at the plugin level.
 
+## [1.7.0] — 2026-06-16
+
+### Added
+- **`_shared/source-truth.md`** — new shared policy: **Implementation >
+  Description**. The source code is what customers see; Jira tickets,
+  design specs, and prose descriptions are the *starting point*, not the
+  *spec*. Every user-visible claim in generated documentation MUST be
+  verified against the implementation (enums, schema JSON, data-source
+  classes, UI label constants, defaults, validators) before publication.
+  Born from PRODUCT-14902 where the Jira "User Story" listed 3 target-
+  version options but the actual source enumerated 4 (Latest / Previous /
+  **Older** / specific).
+- **`doc-planner` source-verification step (8.5)** — new mandatory pass.
+  Accepts `code_repos: [{slug, path}]` input from the orchestrator and
+  verifies every user-visible claim (option lists, labels, defaults,
+  counts, mode names) against the actual source using the techniques in
+  `_shared/source-truth.md` §3. Emits `verification_warnings[]` for any
+  claim that cannot be verified OR is contradicted by the source. The
+  planner's topic notes MUST reflect the verified phrasing, not the
+  description's.
+- **`doc-reviewer` 8th review dimension — Source-code accuracy.** Accepts
+  the same `code_repos` input. Spot-checks 3–5 user-visible claims per
+  file against source. **A documented option/label/count that does NOT
+  appear in source is BLOCKER, not CONCERN** — customer-facing wrongness
+  blocks publication.
+- **`impl-docs` Phase 3.4 — mandatory style check.** Previously, impl-docs
+  had no style-check phase; now it invokes `docs-style-checker` before
+  Phase 3.5 (doc-reviewer), with the same fix cycle as impl-jira Phase 6.7.
+
+### Changed (breaking for orchestrators that previously skipped style on tool absence)
+- **`docs-style-checker` ERROR → fallback path.** Previously, when the
+  primary linter (Vale / project lint / markdownlint) errored at runtime
+  (missing binary, non-zero exit), the agent returned `status: ERROR`
+  without trying the `dt-style-checker` fallback. Now the agent ALWAYS
+  tries the fallback before returning ERROR. `NOT_CONFIGURED` is reached
+  ONLY when no primary linter is configured AND the `dt-style-guide`
+  plugin is not installed. **Some check is better than no check.**
+- **`impl-jira` Phase 6.7 is now MANDATORY.** New hard rule at the top of
+  Phase 6.7: the orchestrator MUST dispatch `docs-style-checker` and act
+  on its return — never skip on its own judgement of which linters are
+  installed. The "Proceed to review without style check" choice was
+  removed from the ERROR escalation (replaced with "Proceed to
+  doc-reviewer" since doc-reviewer still runs).
+- **`impl-jira` Phase 5.7 doc-planner input** — `code_repos:` field added
+  (array of `{slug, path}`). Required for source-truth verification. When
+  omitted, doc-planner emits a `verification_warnings[]` entry per
+  user-visible claim.
+- **`impl-jira` Phase 7 doc-reviewer input** — `code_repos:` field added
+  for the new 8th review dimension.
+- **`risk-planner` hard rules** — explicitly forbid recommending "skip
+  the style check" as a valid disposition (closes the loophole that let
+  v1.6.0 PRODUCT-14902 ship with no style check). Explicitly forbid
+  recommending "trust the Jira description" over source code.
+
+### Fixed
+- **Vale-missing → silent skip regression.** Pre-v1.7.0, if the agent
+  container lacked the Vale binary (common in ephemeral / sandboxed
+  setups), the orchestrator silently skipped Phase 6.7 entirely.
+  Customer-visible style violations (engineer jargon, inconsistent UI
+  labels, contradicting menu paths, plural/singular label mismatches)
+  shipped uncaught. v1.7.0's `docs-style-checker` ERROR-fallback path
+  closes this — the `dt-style-checker` LLM-based agent always runs as a
+  second-chance check when Vale is unavailable.
+
+### Migration notes
+- Local automation that invokes `doc-planner` or `doc-reviewer` directly
+  (outside the orchestrator) should add `code_repos: [{slug, path}, ...]`
+  to the input block. Omitting it is non-breaking but causes
+  `verification_warnings` (planner) or "not verifiable" CONCERN entries
+  (reviewer) on every user-visible claim — the agents refuse to silently
+  emit unverified content.
+- `docs-style-checker` callers who depended on the old "ERROR on missing
+  Vale binary" behaviour will now see `VIOLATIONS_FOUND` / `OK` /
+  `NOT_CONFIGURED` instead (with a note in the `error:` field explaining
+  that the fallback ran). Update conditional logic accordingly.
+
 ## [1.6.0] — 2026-06-16
 
 ### Added
