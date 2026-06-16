@@ -244,10 +244,10 @@ ask_user(
 )
 ```
 
-**Q6 — Release-notes destination** (use case A only; ask if any of the
-following are true on `value_increment.frontmatter`:
+**Q6 — Release-notes destination + screenshot staging** (use case A only; ask
+if any of the following are true on `value_increment.frontmatter`:
 `relevant_for_release_notes == "Yes"` OR `release_versions` is a non-empty
-string):
+string, OR if `screenshots` is non-empty):
 
 The release notes draft is **separate** from the doc page(s). It is NOT
 written into the docs repo (`/workspace/dynatrace-docs/` or wherever) — that
@@ -257,16 +257,19 @@ folder in the Obsidian vault.
 
 **Auto-discover** the project folder by globbing
 `<vault>/Projects/Products/**/<JIRA_KEY>*` and picking the first match. If
-multiple, list them and pick the alphabetically-first.
+multiple, list them and pick the alphabetically-first. The discovered folder
+is used for BOTH the release-notes file AND the screenshot staging directory
+(if `image_policy: cdn_upload_required` is detected later by `doc-planner`).
+Screenshots go into a `Doc screenshots/` subfolder of the project dir.
 
 ```
 ask_user(
-  question: "Where should the release-notes draft go? (Default: write to <auto-discovered path>/<JIRA_KEY>-release-notes.md so you can paste into Jira; Jira automation re-emits to the docs repo.)",
+  question: "Where should the release-notes draft + any staged screenshots go? (Default: write release notes to <auto-discovered path>/<JIRA_KEY>-release-notes.md and stage screenshots in <auto-discovered path>/Doc screenshots/ — both persistent, so Jira-paste and CDN-upload work after container restart.)",
   choices: [
-    "Use default: <auto-discovered path>/<JIRA_KEY>-release-notes.md (Recommended)",
-    "Specify a custom absolute path",
-    "Output to screen only — don't write a file",
-    "Skip release notes entirely",
+    "Use default: <auto-discovered path>/ (Recommended)",
+    "Specify a custom absolute directory for both",
+    "Output release notes to screen only; stage screenshots in default dir",
+    "Skip release notes entirely (screenshots still need a destination)",
     "Other… (describe)"
   ]
 )
@@ -276,10 +279,12 @@ If the default could not be auto-discovered (no matching dir), drop the first
 choice and add a note: "no `<JIRA_KEY>*` folder found under
 `<vault>/Projects/Products/`".
 
-Record the choice as `release_notes_destination`:
-- `"file:<absolute path>"` — write to that file
-- `"stdout"` — print to the chat at Phase 6
-- `"skip"` — do not generate release notes
+Record the choices as `release_notes_destination` and `screenshot_staging_dir`:
+- `release_notes_destination`: `"file:<absolute path>"` / `"stdout"` / `"skip"`
+- `screenshot_staging_dir`: `<absolute path>` (always set — even if release notes
+  are skipped, screenshots still need somewhere persistent to land). Default is
+  `<auto-discovered path>/Doc screenshots/`. **NEVER `/tmp/`** — container
+  restarts wipe it and the work is lost.
 
 ---
 
@@ -548,18 +553,22 @@ Only execute this phase if:
 **Clean-tree check:**
 
 ```bash
-git status --porcelain
+git -C <docs_repo_root> status --porcelain
 ```
+
+(Use `git -C <repo>` form explicitly — cwd may not be the docs repo, and the
+branch must be created in the docs repo, not the orchestrator's cwd.)
 
 If dirty → ask user (same pattern as `impl/SKILL.md` Phase 2.5).
 
-**Detect naming convention:**
-
-```bash
-git --no-pager branch -a | head -20
-```
-
-Look for `docs/`, `feat/`, `feature/` prefix patterns. Default to `docs/`.
+**Detect branch prefix** — follow the algorithm in
+`~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/branch-naming.md`:
+1. `$GIT_USER_INITIALS` env var
+2. `git -C <docs_repo_root> config --get user.initials`
+3. Sniff `git -C <docs_repo_root> --no-pager branch -a` for the dominant
+   `<2-8-char-prefix>/<rest>` pattern (≥ 30 % share AND ≥ 3 occurrences)
+4. Workflow fallback for `impl:jira:`: `docs/`. If detection falls through
+   to this step, run the user-override prompt per §1.5 of `_shared/branch-naming.md`.
 
 **Generate slug:**
 
@@ -568,11 +577,11 @@ Derive from `<JIRA_KEY>` + first 4–6 content words of the VI summary: lowercas
 **Create branch:**
 
 ```bash
-git checkout -b docs/<JIRA_KEY>-<slug>
+git -C <docs_repo_root> checkout -b <prefix>/<JIRA_KEY>-<slug>
 ```
 
-If name exists → append 7-char short SHA: `docs/<JIRA_KEY>-<slug>-<short-sha>`.
-Announce: `"Created branch: docs/<JIRA_KEY>-<slug>"`
+If name exists → append 7-char short SHA: `<prefix>/<JIRA_KEY>-<slug>-<short-sha>`.
+Announce: `"Created branch in <docs_repo_root>: <prefix>/<JIRA_KEY>-<slug>"`
 
 ---
 
@@ -586,7 +595,11 @@ Invoke `doc-location-finder` sub-agent:
 - Pass input block:
 
 ```yaml
-repo_root:       <cwd's git root, resolved in Phase 0>
+repo_root:       <absolute path to the docs repo root — typically the dynatrace-docs
+                  clone, e.g. /workspace/dynatrace-docs. Do NOT use cwd's git root
+                  here; the orchestrator's cwd may be a different repo entirely
+                  (a marketplace repo, a code repo, etc.). Resolve and pass an
+                  explicit absolute path.>
 feature_summary: <2–4 sentences combining jira-reader themes + value_increment.goal>
 diff_highlights:  <key filenames / symbols from the diff-summarizer per_pr summaries>
 ```
@@ -634,7 +647,10 @@ jira_reader_handoff: <paste full YAML from Phase 3>
 diff_summaries:       <paste array of diff-summarizer outputs from Phase 5>
 write_targets:        <paste confirmed list from Phase 5.6>
 screenshots:          <user-provided paths from Phase 1, possibly empty>
-repo_root:            <cwd's git root>
+screenshot_staging_dir: <from Phase 1 Q6 — typically <vault-project-folder>/Doc screenshots/.
+                        NEVER /tmp/ — container restarts wipe it.>
+repo_root:            <absolute path to the docs repo root — typically /workspace/dynatrace-docs;
+                       do NOT use cwd's git root here, cwd may be a different repo>
 ```
 
 Handle the `status` and `gaps`:
@@ -831,7 +847,7 @@ Invoke `docs-style-checker` on the files written in Phase 6:
 - Pass input block:
 
 ```yaml
-repo_root: <cwd's git root>
+repo_root: <absolute path to the docs repo root — NOT cwd's git root; pass explicitly>
 files:     <absolute paths of every file written or modified in Phase 6>
 ```
 
@@ -851,7 +867,7 @@ Act on the return:
   ```
   Task description: doc writing for <JIRA_KEY>
   Reviewer or style-checker output: <paste full docs-style-checker output>
-  Project root: <cwd's git root>
+  Project root: <absolute path to the docs repo root — NOT cwd's git root; pass explicitly>
   Severities to fix: BLOCKER and MAJOR
   ```
 
@@ -937,7 +953,7 @@ Act on the verdict:
      ```
      Task description: doc writing for <JIRA_KEY>
      Reviewer or style-checker output: <paste full doc-reviewer output>
-     Project root: <cwd's git root>
+     Project root: <absolute path to the docs repo root — NOT cwd's git root; pass explicitly>
      Severities to fix: BLOCKER and MAJOR
      ```
 

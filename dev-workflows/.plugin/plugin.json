@@ -1,7 +1,7 @@
 {
   "name": "dev-workflows",
   "description": "Structured development workflow skills for implementing features, fixing vulnerabilities, and upgrading dependencies — with branch management, Opus review, dispatched sub-agents, and automated maintenance.",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "author": {
     "name": "Ivan Gudak",
     "url": "https://github.com/ihudak"

@@ -4,6 +4,74 @@ All notable changes to the **dev-workflows** plugin are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow semver at the plugin level.
 
+## [1.6.0] — 2026-06-16
+
+### Added
+- **`_shared/branch-naming.md`** — new shared policy: every orchestrator that
+  creates a git branch (`impl:`, `impl:docs:`, `impl:jira:`, `fix-vuln:`,
+  `upgrade:`) now resolves the branch *prefix* via a 4-step algorithm:
+  1. `$GIT_USER_INITIALS` env var
+  2. `git config --get user.initials`
+  3. Sniff `git branch -a` for the dominant `<2–8-char-prefix>/<rest>` pattern
+     (≥ 30 % share AND ≥ 3 occurrences)
+  4. Workflow-specific fallback (`feat/`, `docs/`, `fix/`, `chore/`), with a
+     mandatory `ask_user` escalation when reached
+- **`impl:jira:` Phase 1 Q6** — auto-discovered `<vault>/Projects/Products/**/<JIRA_KEY>*/`
+  is now used for BOTH the release-notes destination AND the screenshot
+  staging directory. The Q6 prompt was reworded to make this explicit.
+- **`doc-planner` `screenshot_staging_dir` input field** — orchestrators now
+  pass an explicit persistent directory for screenshot staging. doc-planner
+  validates it and emits a gap if missing while `image_policy` is
+  `cdn_upload_required`.
+
+### Changed (breaking for orchestrators that depend on hard-coded prefixes)
+- **`impl:code:` Phase 2.5** — branch-prefix detection now references
+  `_shared/branch-naming.md` instead of the previous "check `git branch -a`,
+  default to `feat/`" rule.
+- **`impl:docs:` Phase 2.5** — same.
+- **`impl:jira:` Phase 5.5** — same. Also rewritten to use explicit
+  `git -C <docs_repo_root>` form everywhere (clean-tree check, branch sniff,
+  checkout). The previous `git checkout -b docs/...` from cwd silently
+  created the branch in whichever git repo cwd happened to be — typically
+  the wrong repo when the docs repo is a sibling of cwd.
+- **`upgrade:`** — branch-prefix detection now references
+  `_shared/branch-naming.md` (was: "default to `chore/`"). Combined prefix
+  example shifts from `chore/upgrade-springboot-to-3.3.11` (always) to
+  `<resolved-prefix>/upgrade-springboot-to-3.3.11` (e.g.
+  `ivgu/upgrade-springboot-to-3.3.11` when `GIT_USER_INITIALS=ivgu`).
+- **`fix-vuln:`** — same; fallback prefix `fix/` preserved when detection misses.
+- **`impl:jira:` repo_root references** — five spots in `impl-jira/SKILL.md`
+  that previously said `<cwd's git root>` (Phase 5.6 doc-location-finder,
+  Phase 5.7 doc-planner, Phase 6.7 docs-style-checker, Phase 7 doc-fixer ×2)
+  now say `<absolute path to the docs repo root — NOT cwd's git root>`. The
+  orchestrator's cwd may be a different repo (marketplace, code repo,
+  obsidian vault, etc.); the docs target must be passed explicitly.
+
+### Fixed
+- **`doc-planner` screenshot staging path** — previously hard-coded to
+  `/tmp/<JIRA_KEY>-screenshots/`; this path is wiped on container restart and
+  loses staged screenshots before they can be CDN-uploaded. New default is
+  the orchestrator-provided `screenshot_staging_dir` (typically the Obsidian
+  vault project folder). The agent now refuses to use `/tmp/` even if the
+  orchestrator omits the input — it falls back to a persistent sibling of
+  the docs repo and flags a gap.
+- **`impl:jira:` Phase 5.5 cwd assumption** — the previous spec issued
+  `git checkout -b docs/<slug>` without `-C`, which created the branch in
+  the cwd's git repo (often the marketplace repo when the agent is run from
+  the plugin source tree). Now explicitly `git -C <docs_repo_root> checkout -b ...`.
+
+### Migration notes
+- Users with team-specific branch prefix conventions (e.g. `<initials>/`)
+  should set `GIT_USER_INITIALS=<initials>` in their shell rc, or run
+  `git config --global user.initials <initials>` once. The plugin's behaviour
+  for users who do NOT set either is **unchanged** — the workflow-specific
+  fallback (`feat/`, `docs/`, `fix/`, `chore/`) is still used.
+- Local automation that invokes `doc-planner` directly (outside the
+  orchestrator) should add a `screenshot_staging_dir` field to the input
+  block if any `image_policy: cdn_upload_required` page is in scope.
+  Otherwise the planner emits a gap (no behaviour break — the gap is for the
+  caller to resolve).
+
 ## [1.5.0] — 2026-06-15
 
 ### Added

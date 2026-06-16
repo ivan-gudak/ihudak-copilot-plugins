@@ -21,6 +21,16 @@ write_targets:          <confirmed list from doc-location-finder + user; each
                          has kind, section, path, rationale>
 screenshots:            [<array of user-provided absolute image paths; possibly
                          empty>]
+screenshot_staging_dir: <absolute path where the writer should stage screenshots
+                         when image_policy resolves to cdn_upload_required.
+                         The orchestrator MUST pre-discover this — typically a
+                         persistent location under the Obsidian vault project
+                         folder, e.g. `<vault>/Projects/Products/**/<JIRA_KEY>*/Doc screenshots/`.
+                         NEVER /tmp/ — container restarts wipe it. If the
+                         orchestrator omits this field, default to
+                         `<repo_root>/../<JIRA_KEY>-screenshots/` (sibling of
+                         the docs repo, still persistent) and emit a planner
+                         warning in `gaps`.>
 repo_root:              <absolute path to the docs repo root>
 ```
 
@@ -89,8 +99,10 @@ For each write target:
      `image_policy: local`; identify the idiomatic directory.
    - `cdn` count > 0 and `local` count is 0 (or negligible) →
      `image_policy: cdn_upload_required` — the writer MUST NOT copy
-     user-provided screenshots into the repo; they are staged outside the
-     repo and surfaced in the final report for manual upload.
+     user-provided screenshots into the repo; they are staged at
+     `screenshot_staging_dir` (provided by the orchestrator — typically a
+     persistent path under the Obsidian vault project folder, NEVER `/tmp/`)
+     and surfaced in the final report for manual upload.
    - Mixed or zero references → `image_policy: ambiguous` — the writer asks
      the user at Phase 6 which approach to use.
 
@@ -102,12 +114,18 @@ For each write target:
    - `image_policy: local` → set `dest` to an absolute path under
      `<page-dir>/img/` (or the detected idiomatic directory).
    - `image_policy: cdn_upload_required` → set `staging` to an absolute path
-     under `/tmp/<JIRA_KEY>-screenshots/` (NEVER inside the repo). Populate
-     `upload_note` with a 1-line instruction.
+     under `<screenshot_staging_dir>/` (provided by the orchestrator;
+     typically `<vault>/Projects/Products/**/<JIRA_KEY>*/Doc screenshots/`).
+     **NEVER stage under `/tmp/`** — container restarts wipe it and the work
+     is lost. Populate `upload_note` with a 1-line instruction.
    - `image_policy: ambiguous` → leave both `dest` and `staging` null; the
      writer prompts the user at Phase 6.
    - In all cases, populate `alt` with proposed alt-text derived from the
      feature summary and the image filename.
+
+   If `screenshot_staging_dir` was not provided by the orchestrator AND
+   `image_policy: cdn_upload_required` applies, record a gap with
+   `recommended_action: "ask user"` describing the missing input.
 
    If the user provided zero screenshots, `screenshots: []` on every target.
 
@@ -255,9 +273,14 @@ least one target — the caller must surface those to the user before approval.
   record them. The writer performs the actual file moves.
 - NEVER stage screenshots *inside* the repo when
   `image_policy == cdn_upload_required`. The `staging` path MUST be outside
-  `repo_root` (typically `/tmp/<JIRA_KEY>-screenshots/`).
+  `repo_root`, AND MUST be persistent (typically under the Obsidian vault
+  project folder passed by the orchestrator as `screenshot_staging_dir`).
+  **NEVER use `/tmp/`** — container restarts wipe it.
 - NEVER propose `dest` inside the repo when
-  `image_policy == cdn_upload_required`.
+  `image_policy == cdn_upload_required`. NEVER propose any path under
+  `/tmp/` for screenshot staging — it's not durable across container
+  restarts; the orchestrator's `screenshot_staging_dir` (typically under
+  the Obsidian vault) is the persistent location.
 - NEVER strip unknown YAML frontmatter fields from the `other` updates.
 - NEVER fabricate sources. Every `topics[].sources` entry must correspond to a
   Jira key in the `jira_reader_handoff` or a PR URL in `diff_summaries`.

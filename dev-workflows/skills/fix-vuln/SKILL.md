@@ -246,19 +246,24 @@ If the fix causes previously-green tests to fail and a quick investigation does 
 
 ### Branch naming
 
-Inspect recent git history (`git log --oneline -50`) and existing branches (`git branch -a`) to match the project's naming convention.
+Inspect recent git history (`git log --oneline -50`) and existing branches (`git branch -a`) to match the project's naming convention. The branch **prefix** is selected per
+`~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/branch-naming.md`
+(env var `GIT_USER_INITIALS` → `git config user.initials` → branch sniff →
+workflow fallback). The workflow fallback for `fix-vuln:` is `fix/`.
 
-**When a Jira ID is present**, default to:
+**When a Jira ID is present**, the slug default is:
 ```
-fix/JIRA-ID-CVE-XXXX-XXXXX
+<JIRA-ID>-<CVE-ID>
 ```
-Example: `fix/MGD-2423-CVE-2023-46604`
+Combined with prefix: `<prefix>/<JIRA-ID>-<CVE-ID>`.
+Example: `fix/MGD-2423-CVE-2023-46604` (fallback) or `ivgu/MGD-2423-CVE-2023-46604` (with `GIT_USER_INITIALS=ivgu`).
 
 **When no Jira ID is provided**, use the placeholder determined in step 1 (Parse):
 ```
-fix/NOJIRA-CVE-XXXX-XXXXX   (if the project uses NOJIRA)
-fix/CVE-XXXX-XXXXX           (if the project omits issue keys)
+<NOJIRA-CVE-XXXX-XXXXX>   (if the project uses NOJIRA)
+<CVE-XXXX-XXXXX>           (if the project omits issue keys)
 ```
+Combined with prefix: `<prefix>/<slug>`.
 
 ### Commit message
 

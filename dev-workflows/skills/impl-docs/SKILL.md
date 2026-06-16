@@ -161,7 +161,14 @@ or requests it at any later point.
      ]
    )
    ```
-2. **Detect naming convention** — check `git branch -a` for common prefixes (`docs/`, `chore/`, `feat/`). Default to `docs/` if ambiguous.
+2. **Detect branch prefix** — follow the algorithm in
+   `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/branch-naming.md`:
+   1. `$GIT_USER_INITIALS` env var
+   2. `git config --get user.initials`
+   3. Sniff `git branch -a` for the dominant `<2-8-char-prefix>/<rest>` pattern
+      (≥ 30 % share AND ≥ 3 occurrences)
+   4. Workflow fallback for `impl:docs:`: `docs/`. If detection falls through to
+      this step, run the user-override prompt per §1.5 of `_shared/branch-naming.md`.
 3. **Generate slug** — from the first 6–8 content words of the description: lowercase, hyphens, max 40 chars.
 4. **Create and checkout** — `git checkout -b <prefix>/<slug>`. Announce: `"Created branch: <prefix>/<slug>"`.
 

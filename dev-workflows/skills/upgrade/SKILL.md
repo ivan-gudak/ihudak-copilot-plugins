@@ -129,10 +129,14 @@ When a `CONFLICT` is returned, the `upgrade-planner` sub-agent provides ranked a
        )
        ```
      - **Stash**: `git stash push -m "pre-upgrade stash"`, then continue. **Cancel**: stop.
-   - Generate the branch name:
-     - Single component: `chore/upgrade-<component>-to-<version>` (e.g. `chore/upgrade-springboot-to-3.3.11`)
-     - Multiple components: `chore/upgrade-<first>-and-<N>-more` (e.g. `chore/upgrade-springboot-and-2-more`)
-     - Check `git branch -a` for the project's prefix convention; default to `chore/`.
+   - Generate the branch name. The prefix is selected per
+     `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/branch-naming.md`
+     (env var → git config → branch sniff → fallback). The workflow fallback
+     for `upgrade:` is `chore/`. The slug portion is:
+     - Single component: `upgrade-<component>-to-<version>` (e.g. `upgrade-springboot-to-3.3.11`)
+     - Multiple components: `upgrade-<first>-and-<N>-more` (e.g. `upgrade-springboot-and-2-more`)
+     Combined: `<prefix>/<slug>` (e.g. `ivgu/upgrade-springboot-to-3.3.11` if
+     `GIT_USER_INITIALS=ivgu`, or `chore/upgrade-springboot-to-3.3.11` on fallback).
    - Check HEAD context: if HEAD is NOT on the default branch and has ahead commits (`git log origin/HEAD..HEAD --oneline 2>/dev/null` is non-empty), ask:
      ```
      ask_user(

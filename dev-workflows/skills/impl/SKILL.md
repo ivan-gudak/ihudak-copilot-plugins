@@ -162,7 +162,14 @@ Before writing any file, ensure all work is isolated on a dedicated branch.
    - **Proceed**: note in the Phase 5 report that the working tree was dirty at implementation start. Automated review/PR guarantees are void.
    - **Cancel**: stop and summarize what was planned.
 
-2. **Detect naming convention** — check `git branch -a` for the project's branch prefix (`feat/`, `feature/`, `chore/`, `story/`, etc.). Default to `feat/` if ambiguous.
+2. **Detect branch prefix** — follow the algorithm in
+   `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/branch-naming.md`:
+   1. `$GIT_USER_INITIALS` env var
+   2. `git config --get user.initials`
+   3. Sniff `git branch -a` for the dominant `<2-8-char-prefix>/<rest>` pattern
+      (≥ 30 % share AND ≥ 3 occurrences)
+   4. Workflow fallback for `impl:code:`: `feat/`. If detection falls through to
+      this step, run the user-override prompt per §1.5 of `_shared/branch-naming.md`.
 
 3. **Generate slug** — derive from the first 6–8 content words of the implementation description: lowercase, hyphens, max 40 chars, strip punctuation and stop-words (a, an, the, in, for, to, with, of). Example: "Add user authentication to login page" → `add-user-authentication-login-page`.
 
