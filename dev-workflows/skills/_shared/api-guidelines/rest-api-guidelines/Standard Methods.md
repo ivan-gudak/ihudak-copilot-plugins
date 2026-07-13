@@ -82,7 +82,7 @@ The _Update_ method **must** support a full update, it **may** also support part
 
 #### Example
 ```
-PUT /platformdocument:/v1/documents/{document-id}
+PUT /platform/document/v1/documents/{document-id}
 
 HTTP/1.1 200
 OK
@@ -105,7 +105,7 @@ Content-Type: application/json
 
 #### Example
 ```
-PATCH /platformdocument:/v1/documents/{document-id}
+PATCH /platform/document/v1/documents/{document-id}
 
 HTTP/1.1 200
 OK

@@ -175,7 +175,7 @@ These are commonly used fields in the `details` object:
         "details": {
             "missingScopes": [ "document:documents:read", "state:app-states:write" ]
         },
-        "help": "https://dt-url.netupgrade:-licence"
+        "help": "https://dt-url.net/upgrade-licence"
     }
 }
 ```

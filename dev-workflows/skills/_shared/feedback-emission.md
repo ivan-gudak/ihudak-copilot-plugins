@@ -15,7 +15,7 @@ persistence ladder is **specs-first** (§2).
 
 **Self-contained — no hard cross-plugin dependency.** `prompt-brainstorm:` uses
 `superpowers:brainstorming`; `prompt-grill-me:` grills the fix inline following
-the embedded grilling technique (`references/grilling-technique.md`). Neither is
+the embedded grilling technique (`~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/grilling-technique.md`). Neither is
 a declared install-time dependency.
 
 **Relationship to B4 (`followup-emission.md`).** B4 captures the *engineer's own*
@@ -101,7 +101,7 @@ capture, §5). Walk the ladder top-down and stop at the first tier that applies:
    `unfiled — move under the VI dir if it belongs to one.`
 3. **No `$SPECS_PATH` (unset / missing / read-only) AND the vault is writable**
    (`$VAULT_PATH` set **and** an existing directory **and**
-   writable) → `$VAULT_PATH/dev-workflowsfeedback:/<KEY>-feedback.md`, with a
+   writable) → `$VAULT_PATH/dev-workflows/feedback/<KEY>-feedback.md`, with a
    **loud notice**:
    `⚠ $SPECS_PATH unavailable — saved to your vault; it will NOT auto-aggregate to the maintainer. Set $SPECS_PATH and commit, or forward manually.`
 4. **`source = directory`** (imported Jira dir, no specs/vault) → beside the

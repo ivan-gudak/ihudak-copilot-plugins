@@ -115,7 +115,7 @@ On the §2 powerful chain (`planning_model`), turn the detection report into a d
   > - **Multi-space / docstack only:** include `cross_space_override` (manifest path + the last-write-wins shadowing mechanism + the `ignore`-to-win rule) and `shared_registries` (the `schema-ids.yml` / `schema-mappings.yml` lock-step rule). **Single-space repo:** OMIT both.
   > - `tokens`: only the markers detection actually found (`latest_tag`, `gen3_settings_breadcrumb`, `project_conditionals`).
   > - `internal_links.convention`, `branch_naming.pattern`, `images.policy`, `prerequisites[]`: fill from detection; leave a field out rather than inventing it.
-  > - `frontmatter:` is **POINTERS ONLY** — set `owned_by_skill: dynatrace-docs-frontmatter`, `changelog_guidelines: references/dynatrace-docs/changelog-guidelines.md`, `managed_owners: references/dynatrace-docs/managed-owners.txt`. NEVER copy any changelog or owners rule text into the profile.
+  > - `frontmatter:` is **POINTERS ONLY** — set `owned_by_skill: dynatrace-docs-frontmatter`, `changelog_guidelines: ~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/dynatrace-docs/changelog-guidelines.md`, `managed_owners: ~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/dynatrace-docs/managed-owners.txt`. NEVER copy any changelog or owners rule text into the profile.
   > - Mark every field as `detected` (grounded in the report) or `needs-confirmation` (inferred / not found) so the orchestrator knows what to ask in Phase 4.
   > - Separately, draft minimal complementary **copilot-instructions.md additions** ONLY for conventions not already covered by the dynatrace-docs-frontmatter skill or its reminder hook (e.g. the cross-space shadowing gotcha, the shared-registry lock-step rule, dev-server sequencing). Do NOT restate changelog/owners — defer to the skill."
 
@@ -181,11 +181,11 @@ Produce a reviewable PR in the **target repo** (never the plugin). **Never push 
    ```
    Then base the branch on the repo's default branch so the profile PR is cut from a clean base: resolve the base (`git -C <repo-root> symbolic-ref --short refs/remotes/origin/HEAD`; fall back to `main`, then `master`) and run `git -C <repo-root> switch <base> && git -C <repo-root> pull --ff-only` (the clean-tree check above already ran; if the fast-forward pull fails, offer the same stash/proceed/cancel choices). Then create the branch: `git -C <repo-root> switch -c <name>` (or `git -C <repo-root> switch <name>` if it already exists).
 
-3. **Write the profile.** Create `<repo-root>/.dev-workflows/` if absent, then write the confirmed `.dev-workflows/docs-profile.yml`. It MUST conform to `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/dynatrace-docs/docs-profile-schema.md`. Apply the confirmed complementary copilot-instructions.md additions to the repo's root `copilot-instructions.md` (create the file if absent) — minimal, additive, scoped edits only; never restate changelog/owners rules owned by the dynatrace-docs-frontmatter skill.
+3. **Write the profile.** Create `<repo-root>/.dev-workflows/` if absent, then write the confirmed `.dev-workflows/docs-profile.yml`. It MUST conform to `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/dynatrace-docs/docs-profile-schema.md`. Apply the confirmed complementary copilot-instructions.md additions to the repo's `.github/copilot-instructions.md` (create the file if absent) — minimal, additive, scoped edits only; never restate changelog/owners rules owned by the dynatrace-docs-frontmatter skill.
 
 4. **Format / lint.** If the repo has a formatter or linter (the `format`/`lint` commands captured in the profile), run it on the written files; fix anything it flags on those files. Skip silently if none is configured.
 
-5. **Commit.** `git -C <repo-root> add .dev-workflows/docs-profile.yml copilot-instructions.md` (only the files this command wrote), then commit:
+5. **Commit.** `git -C <repo-root> add .dev-workflows/docs-profile.yml .github/copilot-instructions.md` (only the files this command wrote), then commit:
    ```
    git -C <repo-root> commit -m "docs: add/refresh .dev-workflows/docs-profile.yml"
    ```

@@ -5,7 +5,7 @@ tools: [view, glob, grep]
 ---
 
 Read-only whole-specification reviewer for drafts produced by `specify:`. Uses the strongest available
-reasoning model (Claude Opus). Reads the **whole** `specification.md` and checks it against the
+reasoning model (Opus 4.8/4.7/4.6 or GPT-5.5). Reads the **whole** `specification.md` and checks it against the
 per-stage rules in `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/specification-format.md` plus the cross-stage
 checks below. Never edits the specification.
 

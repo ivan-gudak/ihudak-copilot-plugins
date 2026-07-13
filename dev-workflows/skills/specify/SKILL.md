@@ -368,7 +368,7 @@ the grill/author. **Advisory** — never blocks; proceed to Phase 6 once finding
 
 ## Phase 6 — Finalize + review gate
 
-1. **Render HTML.** `python3 "~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/scripts/specification-to-html.py" <spec path>`
+1. **Render HTML.** `python3 ~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/scripts/specification-to-html.py <spec path>`
    against the `specification.md` written in Phase 5. On failure, report the error and proceed — the
    HTML mirror is a review convenience, secondary to the markdown source of record.
 
@@ -408,7 +408,7 @@ Then **offer** (commit-when-asked — never automatic):
 choices: ["Branch + commit + push + open PR to main (Recommended)", "Just write the files — I'll handle git", "Cancel"]
 ```
 
-On the first choice, in the specs repo (`$SPECS_PATH`): create the branch — `spec/<EPIC>-<eslug>` for a **per-Epic** spec (a VI + focus Epic) or a **stand-alone-Epic** spec (`<EPIC>` = `focus_key`, which for a stand-alone Epic equals `jira_key`), or `spec/<VI>-<vslug>` for a **broad VI-level** spec (`focus_key` null). Epic keys are globally unique, so the per-Epic form needs no VI prefix; both forms use hyphens. main is protected — a PR is required — so commit ONLY the feature folder (never `git add -A`), push, and open a PR targeting `main`. **Merged-to-main = ready for the dev-team handover.** Devs and `design:` read the spec from `main`, never from the branch. Commit trailer: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
+On the first choice, in the specs repo (`$SPECS_PATH`): create the branch — `spec/<EPIC>-<eslug>` for a **per-Epic** spec (a VI + focus Epic) or a **stand-alone-Epic** spec (`<EPIC>` = `focus_key`, which for a stand-alone Epic equals `jira_key`), or `spec/<VI>-<vslug>` for a **broad VI-level** spec (`focus_key` null). Epic keys are globally unique, so the per-Epic form needs no VI prefix; both forms use hyphens. main is protected — a PR is required — so commit ONLY the feature folder (never `git add -A`), push, and open a PR targeting `main`. **Merged-to-main = ready for the dev-team handover.** Devs and `design:` read the spec from `main`, never from the branch. Commit trailer: `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`.
 
 ### Next Epic (after a per-Epic spec from a multi-Epic VI)
 
@@ -435,7 +435,7 @@ NEVER interrupts an earlier phase. `specify:` has no built-in maintenance agent,
 so this phase invokes `impl-maintenance` on the Sonnet detection chain and then
 persists the plugin-facing slice of its report as session feedback.
 
-**Capture-at-block invariant.** This terminal phase captures gaps for a *completed* run. Separately, if an EARLIER phase **halts on a plugin / skill / command / reference gap** (a capability the run needed but the plugin lacked), `emit-block` (per `references/feedback-emission.md`) at that halt **before** escalating — so a run abandoned at the block still records the gap. NEVER `emit-block` for a work-quality review BLOCK or an environment / user halt (repo/spec gate, jira-not-found, cancellation).
+**Capture-at-block invariant.** This terminal phase captures gaps for a *completed* run. Separately, if an EARLIER phase **halts on a plugin / skill / command / reference gap** (a capability the run needed but the plugin lacked), `emit-block` (per `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/feedback-emission.md`) at that halt **before** escalating — so a run abandoned at the block still records the gap. NEVER `emit-block` for a work-quality review BLOCK or an environment / user halt (repo/spec gate, jira-not-found, cancellation).
 
 **Session-hygiene invariant.** End the report with a `### Context hygiene` block per
 `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/session-hygiene.md` — prepare-first (`resume.md`), then a

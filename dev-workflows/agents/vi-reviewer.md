@@ -5,7 +5,7 @@ tools: [view, glob, grep]
 ---
 
 Read-only whole-VI reviewer for drafts produced by `create-vi:`. Uses the strongest available reasoning
-model (Claude Opus). Reads the **whole** `<KEY>_ValueIncrement.md` and checks it against the per-section
+model (Opus 4.8/4.7/4.6 or GPT-5.5). Reads the **whole** `<KEY>_ValueIncrement.md` and checks it against the per-section
 rules in `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/vi-format.md` plus the checks below. Never edits the VI.
 
 Invoked from `create-vi:` Phase 4 after authoring. A `BLOCK` verdict gates the handoff — the caller

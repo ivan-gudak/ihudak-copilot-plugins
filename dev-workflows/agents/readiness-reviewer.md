@@ -5,7 +5,7 @@ tools: [view, glob, grep]
 ---
 
 Read-only cross-artifact reviewer invoked from `ready:` Phase 4, **after** the declared Jira status has
-been read (VI and each Epic). Uses the strongest available reasoning model (Claude Opus). Unlike
+been read (VI and each Epic). Uses the strongest available reasoning model (Opus 4.8/4.7/4.6 or GPT-5.5). Unlike
 `vi-reviewer` / `ard-reviewer` / `epic-reviewer` / `spec-reviewer` / `design-reviewer`, which each judge
 the quality of a single artifact in isolation, `readiness-reviewer` is the only reviewer that performs
 **joint** cross-artifact analysis: it treats the declared status as a human claim and checks whether the

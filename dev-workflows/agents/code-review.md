@@ -5,7 +5,7 @@ tools: [view, glob, grep]
 ---
 
 Deep post-implementation code reviewer for SIGNIFICANT / HIGH-RISK tasks. Uses
-the strongest available reasoning model (Claude Opus).
+the strongest available reasoning model (Opus 4.8/4.7/4.6 or GPT-5.5).
 
 Invoked from the dev-workflows commands (`implement:`, `vuln:`, `upgrade:`) after the implementation is
 complete, but BEFORE the test suite is run. The review gates the test run -

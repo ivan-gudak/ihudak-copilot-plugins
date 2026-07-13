@@ -398,7 +398,7 @@ When `images_wanted` is `true`, build a **merged, deduped candidate list** from 
 
 1. **Recursive scan of `<specs_dir>`** — when Phase 0 resolved a `specs_dir` (not `none`), recursively scan it for image files across the spec root, `epics/`, and `spec/`:
    ```bash
-   find "<specs_dir>" \( -path "*epics:/*" -o -path "*/spec/*" -o -path "<specs_dir>/*" \) \
+   find "<specs_dir>" \( -path "*/epics/*" -o -path "*/spec/*" -o -path "<specs_dir>/*" \) \
      -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.gif" -o -iname "*.svg" -o -iname "*.webp" \) 2>/dev/null
    ```
    When `specs_dir` is `none`, this source contributes nothing.

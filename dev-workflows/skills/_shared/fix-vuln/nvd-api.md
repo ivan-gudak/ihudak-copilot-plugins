@@ -83,7 +83,7 @@ Safe version: `5.16.7` (or the latest 5.x patch release >= that bound).
 If the API returns no `configurations` (some CVEs lack CPE data), fetch the human-readable page:
 
 ```
-https://nvd.nist.govvuln:/detail/<CVE-ID>
+https://nvd.nist.gov/vuln/detail/<CVE-ID>
 ```
 
 Use `web_fetch` to retrieve the page and extract the affected software table.

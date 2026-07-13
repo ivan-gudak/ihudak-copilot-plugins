@@ -1,7 +1,7 @@
 ---
 name: create-ard
 description: >
-  Architecture-authoring workflow (Product Architect phase, sub-project 3 of the VI-creation flow). Grounds on the mounted implementation repos (architect-driven discovery — no PRs) and authors an ARD for a VI (create-ard: <VI-KEY>) or an Epic (create-ard: <VI-KEY> <Epic-KEY>, inheriting the VI-level ARD), against references/ard-format.md, gated by the Opus ard-reviewer, written to $SPECS_PATH/specifications/<KEY>-<slug>/. Optional; scoped; product-architecture level (no code writing). Introduces the pa role.
+  Architecture-authoring workflow (Product Architect phase, sub-project 3 of the VI-creation flow). Grounds on the mounted implementation repos (architect-driven discovery — no PRs) and authors an ARD for a VI (create-ard: <VI-KEY>) or an Epic (create-ard: <VI-KEY> <Epic-KEY>, inheriting the VI-level ARD), against _shared/ard-format.md, gated by the Opus ard-reviewer, written to $SPECS_PATH/specifications/<KEY>-<slug>/. Optional; scoped; product-architecture level (no code writing). Introduces the pa role.
   Activated when the user prompt starts with "create-ard:".
 allowed-tools: view, edit, create, bash, glob, grep, task, web_fetch, ask_user
 ---

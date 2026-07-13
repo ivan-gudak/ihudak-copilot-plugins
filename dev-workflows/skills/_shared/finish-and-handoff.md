@@ -13,8 +13,8 @@ recorded:
 - `base_branch` — the resolved base.
 - `profile_commit` (C0) — set ONLY for an inline-profiling run
   (`profile_source: generated`): the commit that introduced
-  `.dev-workflowsdocs-profile:.yml`, found with
-  `git log --diff-filter=A --format=%H -- .dev-workflowsdocs-profile:.yml | head -1`.
+  `.dev-workflows/docs-profile.yml`, found with
+  `git log --diff-filter=A --format=%H -- .dev-workflows/docs-profile.yml | head -1`.
   Absent otherwise.
 
 ## 2. Squash (always)

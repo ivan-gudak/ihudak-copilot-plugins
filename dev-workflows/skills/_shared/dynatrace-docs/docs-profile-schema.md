@@ -52,8 +52,8 @@ branch_naming:
 commit_convention: "<JIRA-KEY> <summary>"     # Phase 8.5 squash commit message format
 frontmatter:                          # pointers only — NOT a re-spec
   owned_by_skill: dynatrace-docs-frontmatter
-  changelog_guidelines: references/dynatrace-docs/changelog-guidelines.md
-  managed_owners: references/dynatrace-docs/managed-owners.txt
+  changelog_guidelines: ~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/dynatrace-docs/changelog-guidelines.md
+  managed_owners: ~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/dynatrace-docs/managed-owners.txt
 images:
   policy: "CDN-hosted; the user uploads to CDN and supplies links; docs reference the URLs; never commit binaries"
 prerequisites:

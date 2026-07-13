@@ -32,7 +32,7 @@ must be resolved down to a single Epic. Pass an explicit `<VI> <Epic>` to scope 
 ## Phase 0 — Resolve input
 
 1. **Resolve the Jira input via the shared front-end.** Execute
-   `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/jira-input-resolution.md` against `the argument (text following the `ready:` trigger)`. `ready:` is
+   `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/jira-input-resolution.md` against the argument (text following the `ready:` trigger). `ready:` is
    **jira-driven only**: expect `mode: jira-driven`. The front-end owns the `$VAULT_PATH` /
    `jira-products` validation, Fallbacks A/B **and D/E**, and the VI-selector (key-or-directory) +
    focus-Epic grammar. Carry forward `jira_key`, `focus_key`, `jira_export_root`, `source`.
@@ -334,7 +334,7 @@ plugin-gap halt (see Invariants).
    to share this snapshot.
 
    ### Next step
-   [Per `references/next-phase-offer.md` — guidance only, never auto-invoked. SUPPORTED → Team →
+   [Per `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/next-phase-offer.md` — guidance only, never auto-invoked. SUPPORTED → Team →
    `implement: <VI> [<Epic>]`. PARTIAL / NOT-SUPPORTED → resolve the named gaps above and update the
    Jira status to match reality, then re-run `ready: <VI> [<Epic>]`.]
 
@@ -346,7 +346,7 @@ plugin-gap halt (see Invariants).
    - **PARTIAL / NOT-SUPPORTED → resolving the gaps yourself now?** → **`/compact`**.
    - Consider **`/rename <VI-ID>-<slug>-team`** to relocate this session later.
 
-   Guidance only — see `references/session-hygiene.md`.
+   Guidance only — see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/session-hygiene.md`.
    ```
 
 `ready:` **NEVER** writes to Jira, `jira-products/`, or the vault, and **NEVER auto-commits**
@@ -493,9 +493,9 @@ current working directory.
 - NEVER branch — this command never creates a git branch
 - NEVER auto-commit `_readiness.md` (git is the user's responsibility)
 - doc-only — repo check is presence-only, no scanning (Phase 3c; never dispatches `code-scanner`)
-- ALWAYS end with a `### Next step` per `references/next-phase-offer.md` — guidance only, never
+- ALWAYS end with a `### Next step` per `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/next-phase-offer.md` — guidance only, never
   auto-invoked
-- ALWAYS `emit-block` (per `references/feedback-emission.md`) before escalating a halt caused by a
+- ALWAYS `emit-block` (per `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/feedback-emission.md`) before escalating a halt caused by a
   **plugin / skill / command / reference gap** — a `readiness-reviewer` run that cannot get a verdict
   because the plugin lacked something it needed still records it. NEVER for the reviewer's own
   `PARTIAL`/`NOT-SUPPORTED` verdict (a finding about the *work*, not the plugin) or an environment/user
@@ -517,4 +517,4 @@ current working directory.
   ADDITIVE and guarded on `status: found` — a run with no ARD is byte-identical to before
 - ALL written claims trace to Jira keys (from `jira-reader`) or artifact paths actually read; never
   invent content the sources don't contain
-- ALWAYS end with a `### Context hygiene` block per `references/session-hygiene.md` — prepare-first (`resume.md`, verdict as carry-forward), then a same-role `/compact` suggestion + `/rename <VI-ID>-<slug>-team`; guidance only, never auto-run.
+- ALWAYS end with a `### Context hygiene` block per `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/session-hygiene.md` — prepare-first (`resume.md`, verdict as carry-forward), then a same-role `/compact` suggestion + `/rename <VI-ID>-<slug>-team`; guidance only, never auto-run.

@@ -5,7 +5,7 @@ tools: [view, glob, grep]
 ---
 
 Read-only whole-design reviewer for drafts produced by `design:`. Uses the strongest available
-reasoning model (Claude Opus). Reads the **whole** `design.md` and its source `specification.md`, and
+reasoning model (Opus 4.8/4.7/4.6 or GPT-5.5). Reads the **whole** `design.md` and its source `specification.md`, and
 checks the design against the per-section rules in `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/design-format.md`
 plus the cross-cutting checks below. Never edits either file.
 

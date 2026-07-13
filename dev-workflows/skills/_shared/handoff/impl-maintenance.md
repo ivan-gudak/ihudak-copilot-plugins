@@ -55,7 +55,7 @@ Return this exact shape (no preamble, no chatter):
 - _or_ "No new hooks suggested"
 
 #### Reference docs
-- **File**: [path, e.g. ~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_sharedupgrade:/compatibility.md]
+- **File**: [path, e.g. ~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/upgrade/compatibility.md]
   **Change**: [what to add or update]
   **Rationale**: [what was missing that caused the workaround or ambiguity]
 - ...

@@ -28,7 +28,7 @@ The following table describes the **required** mapping:
 | ------------------------------------------------------------------- | -------------------------------- |
 | DELETE /platform/app-registry/v1/apps                               | `app-registry:apps:delete`       |
 | GET /platform/app-registry/v1/app-icons                             | `app-registry:app-icons:read`    |
-| POST /platformdocument:-store/v1/documents                          | `document-store:documents:write` |
+| POST /platform/document-store/v1/documents                          | `document-store:documents:write` |
 | GET /platform-reserved/platform-management/v1/effective-permissions | `platform-management:effective-permissions:read` |
 
 ## Custom Method Mapping

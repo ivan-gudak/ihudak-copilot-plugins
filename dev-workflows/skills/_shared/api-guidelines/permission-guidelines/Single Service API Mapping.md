@@ -8,5 +8,5 @@ In this scenario the [general mapping](../permission-guidelines/General%20Mappin
 | API Endpoint                                           | IAM Permission                   |
 | ------------------------------------------------------ | -------------------------------- |
 | GET /platform/app-registry/v1/apps | `app-registry:apps:read` |
-| POST /platformdocument:-store/v1/documents  | `document-store:documents:write`     |
+| POST /platform/document-store/v1/documents  | `document-store:documents:write`     |
 | POST /platform/automation/v2/workflows:execute         | `automation:workflows:execute`   |

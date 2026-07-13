@@ -70,7 +70,7 @@ when the change is **production-critical, security-critical, or data-irreversibl
 > repo (API renames, signature changes, deprecation removals, behaviour
 > adaptations). Escalate to HIGH-RISK when a major bump targets a
 > security-critical library (auth/authn frameworks, crypto, deserializers,
-> JWT, OAuth, session libs). See `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/fix-vuln/SKILL.md`
+> JWT, OAuth, session libs). See `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/vuln/SKILL.md`
 > "Step 0 — Classify & Route" for the full vulnerability rubric.
 >
 > **For `implement:` and `upgrade:` orchestrators**, the standard rubric in §1.1
@@ -198,7 +198,7 @@ model_routing:
   implementation_model: <e.g. claude-sonnet-4.6 or current_model>
   detection_model: <e.g. claude-sonnet-4.6>  # mid-tier steps (§2.1); never the session model
   fixes_model:    <same as implementation_model>
-  strong_available: true | false             # true if any §2 peer (Opus 4.8/4.7/4.6 or GPT-5.5) is available
+  opus_available: true | false             # true if any §2 peer (Opus 4.8/4.7/4.6 or GPT-5.5) is available
   gate_tests_on_review: true | false   # optional; default false. Only meaningful for SIGNIFICANT/HIGH-RISK.
                                        # When true, the executor/fixer sub-agent stops after the build,
                                        # returns status: AWAITING_REVIEW, and waits for a follow-up call

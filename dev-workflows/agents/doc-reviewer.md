@@ -4,7 +4,7 @@ description: "Reviews product documentation written by document: for correctness
 tools: [view, glob, grep]
 ---
 
-Deep post-write reviewer for **product documentation** produced by `document:`. Uses the strongest available reasoning model (Claude Opus).
+Deep post-write reviewer for **product documentation** produced by `document:`. Uses the strongest available reasoning model (Opus 4.8/4.7/4.6 or GPT-5.5).
 
 Invoked from `document:` Phase 7, after the writer (Phase 6.3) completes and `docs-style-checker` (Phase 6.4) has run. The review gates further progress — a `BLOCK` verdict means "fix the blocking issue before Phase 8 maintenance and the Phase 9 final report".
 

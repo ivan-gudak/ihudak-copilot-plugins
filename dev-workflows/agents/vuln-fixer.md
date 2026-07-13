@@ -7,7 +7,7 @@ description: >
   commit to a new branch, and open a PR. Invoked sequentially by the fix-vuln
   orchestrator with a research report from vuln-research. NOT triggered by direct
   user prompts.
-tools: [view, grep, glob, bash, edit, create]
+tools: [view, grep, glob, bash, edit, create, task]
 ---
 
 # vuln-fixer — CVE Fix Agent
@@ -41,7 +41,7 @@ Receive the research report for **one CVE** with `status: READY`.
    On `status: RUN_FAILED` or `COMMAND_NOT_FOUND`: set output `status: BASELINE_FAILED`, return.
 
 2. **Apply fix** — Update the version pin(s) listed in the research report's `files` array.
-   Use the ecosystem-appropriate update command (see `references/fix-vuln/build-systems.md`).
+   Use the ecosystem-appropriate update command (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/fix-vuln/build-systems.md`).
 
 3. **Build** — Run the project build (compile only, no tests). On failure see "Build failure" below.
 
@@ -53,7 +53,7 @@ Receive the research report for **one CVE** with `status: READY`.
 5. **Commit & PR** — Follow the Git Workflow in `vuln:` exactly.
    Branch name, commit message, and PR body must conform to that spec.
 
-6. **Output** — Produce the result record (see `references/handoff/vuln-fixer.md` output format).
+6. **Output** — Produce the result record (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/handoff/vuln-fixer.md` output format).
 
 ## Build failure
 

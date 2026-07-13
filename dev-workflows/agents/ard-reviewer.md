@@ -5,7 +5,7 @@ tools: [view, glob, grep]
 ---
 
 Read-only whole-ARD reviewer for drafts produced by `create-ard:`. Uses the strongest available
-reasoning model (Claude Opus). Reads the **whole** ARD and checks it against the rules in
+reasoning model (Opus 4.8/4.7/4.6 or GPT-5.5). Reads the **whole** ARD and checks it against the rules in
 `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/ard-format.md` plus the dimensions below. Never edits the ARD.
 
 Invoked from `create-ard:` Phase 5 after authoring. A `BLOCK` verdict gates the handoff — the caller

@@ -21,7 +21,7 @@ Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_
 
 Receive a single upgrade request (one component, one target spec).
 
-1. **Detect** — Locate the component in the repo using `references/upgrade/ecosystems.md`.
+1. **Detect** — Locate the component in the repo using `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/upgrade/ecosystems.md`.
    If not found: set `status: NOT_FOUND`, return immediately.
 
 2. **Resolve target version** — Apply the version resolution rules from `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade/SKILL.md`
@@ -30,7 +30,7 @@ Receive a single upgrade request (one component, one target spec).
 3. **Compatibility check** — For the resolved target version, verify compatibility against:
    - All other components listed in `other_upgrades` (being upgraded in the same command).
    - All existing components in the repo inventory (staying at their current version).
-   Use `references/upgrade/compatibility.md` and the component's own release notes.
+   Use `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/upgrade/compatibility.md` and the component's own release notes.
 
 4. **Related upgrades** — Identify any companion upgrades the target version requires
    (e.g. a Spring Boot major bump requires a Hibernate bump). List them in the plan.
@@ -40,7 +40,7 @@ Receive a single upgrade request (one component, one target spec).
    - Populate `conflict_details` and `alternatives` (ranked least-invasive first).
    - Do NOT block; return the conflict info so the orchestrator can surface it to the user.
 
-6. **Output** — Produce the plan record (see `references/handoff/upgrade-planner.md` output format).
+6. **Output** — Produce the plan record (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/handoff/upgrade-planner.md` output format).
 
 ## Invariants
 

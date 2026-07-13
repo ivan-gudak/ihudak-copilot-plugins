@@ -4,7 +4,7 @@ description: "Reviews Epic drafts written by epics: for goal clarity, acceptance
 tools: [view, glob, grep]
 ---
 
-Deep post-write reviewer for **Epic drafts** produced by `epics:`. Uses the strongest available reasoning model (Claude Opus).
+Deep post-write reviewer for **Epic drafts** produced by `epics:`. Uses the strongest available reasoning model (Opus 4.8/4.7/4.6 or GPT-5.5).
 
 Invoked from `epics:` Phase 7, after the writer (Phase 6) has drafted one `.md` file per Epic under the resolved output directory (default `$VAULT_PATH/jira-drafts/<VI-KEY>/`). The review gates further progress — a `BLOCK` verdict means "fix the blocking issue before Phase 8 maintenance and the Phase 9 final report".
 
