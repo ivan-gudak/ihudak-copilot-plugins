@@ -1,30 +1,36 @@
 ---
 name: upgrade-planner
-description: "Sub-agent for the upgrade: workflow. Handles Phase 1 (compatibility planning) for a single component: detect the component in the repo, resolve the requested target version (exact, minor, latest, lts, or bare), and verify compatibility with all other components in the repo. Invoked in parallel by the upgrade orchestrator — NOT triggered by direct user prompts. Returns a structured upgrade plan (ready to hand off to upgrade-executor) or a conflict report."
+description: >
+  Agent for the upgrade workflow. Handles Phase 1 (compatibility planning)
+  for a single component: detect the component in the repo, resolve the requested
+  target version (exact, minor, latest, lts, or bare), and verify compatibility
+  with all other components in the repo. Invoked in parallel by the upgrade
+  orchestrator — NOT triggered by direct user prompts. Returns a structured
+  upgrade plan (ready to hand off to upgrade-executor) or a conflict report.
 tools: [view, grep, glob, bash, web_fetch]
 ---
 
-# upgrade-planner — Upgrade Compatibility Sub-agent
+# upgrade-planner — Upgrade Compatibility Agent
 
-Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade-planner/references/handoff.md` for the exact input/output document format.
-Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade/references/ecosystems.md` for detection patterns and registry query commands.
-Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade/references/compatibility.md` for known compatibility constraints.
-Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade/references/lts-sources.md` when resolving `lts` targets.
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/handoff/upgrade-planner.md` for the exact input/output document format.
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/upgrade/ecosystems.md` for detection patterns and registry query commands.
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/upgrade/compatibility.md` for known compatibility constraints.
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/upgrade/lts-sources.md` when resolving `lts` targets.
 
 ## Process
 
 Receive a single upgrade request (one component, one target spec).
 
-1. **Detect** — Locate the component in the repo using `upgrade/references/ecosystems.md`.
+1. **Detect** — Locate the component in the repo using `references/upgrade/ecosystems.md`.
    If not found: set `status: NOT_FOUND`, return immediately.
 
-2. **Resolve target version** — Apply the version resolution rules from `upgrade/SKILL.md`
+2. **Resolve target version** — Apply the version resolution rules from `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade/SKILL.md`
    ("Version resolution" section) for the given target spec (exact / minor / latest / lts / bare).
 
 3. **Compatibility check** — For the resolved target version, verify compatibility against:
    - All other components listed in `other_upgrades` (being upgraded in the same command).
    - All existing components in the repo inventory (staying at their current version).
-   Use `upgrade/references/compatibility.md` and the component's own release notes.
+   Use `references/upgrade/compatibility.md` and the component's own release notes.
 
 4. **Related upgrades** — Identify any companion upgrades the target version requires
    (e.g. a Spring Boot major bump requires a Hibernate bump). List them in the plan.
@@ -34,7 +40,7 @@ Receive a single upgrade request (one component, one target spec).
    - Populate `conflict_details` and `alternatives` (ranked least-invasive first).
    - Do NOT block; return the conflict info so the orchestrator can surface it to the user.
 
-6. **Output** — Produce the plan record (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade-planner/references/handoff.md` output format).
+6. **Output** — Produce the plan record (see `references/handoff/upgrade-planner.md` output format).
 
 ## Invariants
 
@@ -45,10 +51,10 @@ Receive a single upgrade request (one component, one target spec).
 
 If the orchestrator passes a `model_routing` block (see
 `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/model-routing.md` §4), record it in the output
-`plan` record so the executor and the final report can quote it. This sub-agent
+`plan` record so the executor and the final report can quote it. This agent
 itself runs under whichever model the orchestrator selected when invoking
 it via the `task` tool's `model:` argument — for SIGNIFICANT / HIGH-RISK
-batches the orchestrator will pin this sub-agent to Opus.
+batches the orchestrator will pin this agent to Opus.
 
-This sub-agent has no other behavioural change based on the routing block.
+This agent has no other behavioural change based on the routing block.
 

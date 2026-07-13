@@ -14,7 +14,7 @@ for a compact/clear": the pipeline does the prep and prompts the choice itself.
 ## 1. Prepare-checkpoint (runs FIRST — unconditional for VI-scoped runs)
 
 At command finalization — AFTER the deliverable artifact is saved/committed and AFTER
-`emit-cost` / feedback / follow-up, and BEFORE the printed suggestion — a VI-scoped run
+feedback / follow-up, and BEFORE the printed suggestion — a VI-scoped run
 writes/overwrites a **resume pointer**. It runs regardless of which suggestion (or none)
 fires: **prepare always, suggest adaptively.**
 

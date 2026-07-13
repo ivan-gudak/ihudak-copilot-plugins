@@ -120,8 +120,8 @@ behaviour — zero regression) and the pipeline never fails.
 
 `<VI-dir>/dev-workflows/` (a subdir of the VI's `$SPECS_PATH` spec dir) is the
 home for dev-workflows per-VI artifacts written outside the vault. This feature
-writes `<KEY>-followups.md` there; planned future extensions (session feedback,
-session cost reporting) share the same directory. This keeps the VI spec dir
+writes `<KEY>-followups.md` there; planned future extensions (session feedback)
+share the same directory. This keeps the VI spec dir
 uncluttered and groups all dev-workflows output for a VI in one place.
 
 ## 5. Idempotency / dedupe

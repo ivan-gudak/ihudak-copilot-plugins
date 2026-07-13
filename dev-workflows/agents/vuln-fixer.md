@@ -1,15 +1,21 @@
 ---
 name: vuln-fixer
-description: "Sub-agent for the fix-vuln / vuln: workflow. Handles the fix phase of CVE remediation: capture baseline via test-baseliner, apply the minimal version change produced by vuln-research, rebuild, verify tests via test-baseliner, commit to a new branch, and open a PR. Invoked sequentially by the fix-vuln orchestrator with a research report from vuln-research. NOT triggered by direct user prompts."
+description: >
+  Agent for the vuln workflow. Handles the fix phase of CVE
+  remediation: capture baseline via test-baseliner, apply the minimal version
+  change produced by vuln-research, rebuild, verify tests via test-baseliner,
+  commit to a new branch, and open a PR. Invoked sequentially by the fix-vuln
+  orchestrator with a research report from vuln-research. NOT triggered by direct
+  user prompts.
 tools: [view, grep, glob, bash, edit, create]
 ---
 
-# vuln-fixer — CVE Fix Sub-agent
+# vuln-fixer — CVE Fix Agent
 
-Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/vuln-fixer/references/handoff.md` for the exact input/output document format.
-Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/fix-vuln/references/build-systems.md` for per-ecosystem update commands.
-Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/fix-vuln/SKILL.md` sections "Git Workflow" and "Handling Test Failures" for branch naming, commit message templates, and PR format.
-Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/test-baseliner/references/handoff.md` for the test-baseliner handoff format.
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/handoff/vuln-fixer.md` for the exact input/output document format.
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/fix-vuln/build-systems.md` for per-ecosystem update commands.
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/vuln/SKILL.md` sections "Git Workflow" and "Handling Test Failures" for branch naming, commit message templates, and PR format.
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/handoff/test-baseliner.md` for the test-baseliner handoff format.
 
 ## Process
 
@@ -26,7 +32,7 @@ Receive the research report for **one CVE** with `status: READY`.
 >
 > When `gate_tests_on_review: true` is set on a `phase: full` call, the
 > orchestrator is required to capture and pass the baseline itself (see
-> `fix-vuln/SKILL.md` Step 3); under that gate, **`baseline_tests:
+> `vuln:` command Step 3); under that gate, **`baseline_tests:
 > run-fresh` is invalid** because the captured baseline cannot survive the
 > AWAITING_REVIEW boundary.
 
@@ -35,7 +41,7 @@ Receive the research report for **one CVE** with `status: READY`.
    On `status: RUN_FAILED` or `COMMAND_NOT_FOUND`: set output `status: BASELINE_FAILED`, return.
 
 2. **Apply fix** — Update the version pin(s) listed in the research report's `files` array.
-   Use the ecosystem-appropriate update command (see `fix-vuln/references/build-systems.md`).
+   Use the ecosystem-appropriate update command (see `references/fix-vuln/build-systems.md`).
 
 3. **Build** — Run the project build (compile only, no tests). On failure see "Build failure" below.
 
@@ -44,10 +50,10 @@ Receive the research report for **one CVE** with `status: READY`.
    - `status: REGRESSIONS` → follow "Test regression" below.
    - `status: RUN_FAILED` → revert fix, set `status: BUILD_FAILED`, return.
 
-5. **Commit & PR** — Follow the Git Workflow in `fix-vuln/SKILL.md` exactly.
+5. **Commit & PR** — Follow the Git Workflow in `vuln:` exactly.
    Branch name, commit message, and PR body must conform to that spec.
 
-6. **Output** — Produce the result record (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/vuln-fixer/references/handoff.md` output format).
+6. **Output** — Produce the result record (see `references/handoff/vuln-fixer.md` output format).
 
 ## Build failure
 
@@ -69,7 +75,7 @@ Receive the research report for **one CVE** with `status: READY`.
 
 - Process one CVE per invocation.
 - Never push to `main`/`master` — always use a dedicated fix branch.
-- Always include the `Co-authored-by: Copilot` trailer (see `fix-vuln/SKILL.md`).
+- Always include the `Co-authored-by: Copilot` trailer (see `vuln:`).
 
 ## Model Routing
 
@@ -82,12 +88,12 @@ If the orchestrator passes a `model_routing` block (see
   `status: AWAITING_REVIEW` with the list of files changed and the build
   outcome. **Do NOT run `test-baseliner verify`, do NOT commit, and do NOT
   open a PR.** The orchestrator will perform an Opus code review, then
-  re-invoke this sub-agent with `phase: verify-resume` to run step 4 onward
+  re-invoke this agent with `phase: verify-resume` to run step 4 onward
   (verify, commit, PR).
 - For SIMPLE / MODERATE classification (or no `model_routing` block), proceed
   through all steps as normal.
 
-This sub-agent itself runs under whichever model the orchestrator selected.
+This agent itself runs under whichever model the orchestrator selected.
 Opus is reserved for `vuln-research` planning and the post-impl review — not
 required for the actual file edits.
 

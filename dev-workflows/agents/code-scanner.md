@@ -1,143 +1,106 @@
 ---
 name: code-scanner
-description: "Sub-agent for use case B (impl:jira:epics:). Given a local repo path and a set of capability themes from a Value Increment, scans the filesystem with rg/glob/view to classify each theme as present, partial, or absent in the repo. Produces a capability map and gap summary to inform Epic writing. No PR resolution — the Epic is not yet implemented. Git is used only for the optional prep step (branch switch + pull). Invoked in parallel by impl:jira: (Phase 5)."
-tools: [view, grep, glob, bash]
+description: "Scans a single code repository for existing capabilities and gaps relative to a set of themes. Themes may come from a Value Increment / Epic (Epic writing), from an implementation spec (implement: multi-source scanning), or from a Jira item being specified (specify: light feasibility grounding). Pure filesystem search; no HTTPS. Designed for parallel invocation (one instance per repo, capped at 4 concurrent by the caller). Model tier assigned by the caller per the model-routing policy (no fixed pin)."
+tools: [view, glob, grep, bash]
 ---
 
-# `code-scanner` — Capability Gap Analysis Sub-Agent
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/handoff/code-scanner.md` for the exact input/output document format.
 
-Invoked by the `impl:jira:` orchestrator at Phase 5 (use case B only).
-One instance per repository; all repos are launched in parallel in a single orchestrator response.
+Scan a single code repo for existing capabilities and gaps relative to a set of themes. One instance per repo; the caller — `epics:` (Epic scoping), `implement:` (multi-source implementation scoping), or `specify:` (light capability scan for spec feasibility grounding) — spawns up to 4 concurrent instances per batch.
 
-> **Filesystem scan only.** Use `rg` / `glob` / `view` for the actual scan — NOT `git grep`.
-> Git is only used in the optional prep step (branch switch + pull).
+**Distinction from `diff-summarizer`.** That agent reads *merged PR diffs* for features already implemented; this agent reads *present-day code* for features being scoped. There are no PRs to diff — just filesystem search to understand what exists and what needs to be built.
 
----
-
-## Input
-
-The orchestrator passes this block verbatim:
+## Inputs
 
 ```yaml
-repo_path: <absolute path to the locally-cloned repo — e.g. /workspace/cluster-repo,
-            /repos/cluster, ~/projects/cluster. Must contain a .git directory or
-            be a bare clone. The orchestrator resolves URL slug → local path in
-            Phase 4; this agent does NOT search the filesystem.>
-repo_url_slug: <optional — the URL slug from upstream (e.g. "cluster" for
-                bitbucket.../repos/cluster/...). When provided, the agent
-                cross-checks `git remote get-url origin` and rejects mismatches
-                with status: REPO_MISSING.>
+repo_path:   <absolute path to a local clone, e.g. /workspace/<repo-name>>
+repo_url_slug: <repo slug from the source URL, e.g. "cluster"; optional>
 capability_themes:
-  - <short phrase, e.g. "ActiveGate auto-update windows">
-  - <short phrase, e.g. "Network-zone aware update scheduling">
+  - <short phrase, e.g. "Auto-update scheduling" or "Config UI for rate limits">
 context: |
-  <3–5 sentences: VI goal and what this Epic-set is meant to achieve>
-search_hints:                        # optional
-  symbols:    [<class/function names>]
-  paths:      [<directory globs, e.g. "**/autoupdate/**">]
-  keywords:   [<grep keywords>]
+  <3–5 sentences: the goal being scoped. For Epic writing, the VI goal and what
+  the Epic-set must achieve. For implement:, the implementation goal from the
+  spec and what the change must accomplish.>
+search_hints:
+  symbols:  [<class / function names>]
+  paths:    [<directory globs, e.g. "**/autoupdate/**">]
+  keywords: [<grep keywords>]
 refresh:
   switch_to_default_branch: true
-  pull: true
-model_routing:
-  classification: MODERATE
-  # ... rest of block from orchestrator
+  pull: true   # default true — capability scans target present-day code and want the
+               # default-branch tip. (Asymmetry with diff-summarizer, which keeps
+               # pull: false because it targets historical merged commits.)
 ```
 
----
+Refuse to run without `repo_path`, at least one entry in `capability_themes`, and a `context`.
+
+When `repo_url_slug` is provided, before scanning run
+`git -C <repo_path> remote get-url origin`, strip a trailing `.git`, and compare
+the URL's last path segment to `repo_url_slug`. On mismatch, return
+`status: REPO_MISSING` with a note naming both slugs. When `repo_url_slug` is
+absent, trust `repo_path` as given.
 
 ## Process
 
-### Step 1 — Validate repo
+1. **Verify repo exists.** If `repo_path` is not a directory, return `status: REPO_MISSING`.
 
-Check that `repo_path` exists.
-- If not → return `status: REPO_MISSING` immediately.
+2. **Prep step.**
+   - `git status --porcelain` — if output is non-empty AND `refresh.pull` is true → return `status: DIRTY_TREE`. The caller's escalation prompts the user to stash-and-retry, skip this repo, or cancel.
+   - If `refresh.switch_to_default_branch` is true: resolve the default branch via `git symbolic-ref --short refs/remotes/origin/HEAD`. If that fails (unset `origin/HEAD`), run `git remote set-head origin --auto` and retry; if it still fails, try `main`, then `master`, in that order. If the fallback chain exhausts, return `status: REFRESH_BLOCKED` with reason `cannot resolve default branch`.
+   - `git switch <default-branch>` — on failure return `status: REFRESH_BLOCKED` with the one-line git error.
+   - If `refresh.pull` is true: `git pull --ff-only`. On any failure (non-fast-forward, network, auth, etc.) return `status: REFRESH_BLOCKED` with the one-line git error.
 
-If `repo_url_slug` was provided, additionally verify that the resolved repo
-matches the expected upstream:
+3. **Scan — pure filesystem.** No git commands beyond step 2. For each theme:
+   - Run `grep` / `glob` / file reads against `search_hints.keywords`, `search_hints.symbols`, and `search_hints.paths`.
+   - Augment hints with conservative derivations from the theme text itself (tokenise the theme into 2–3 keywords if `search_hints.keywords` is thin).
+   - Collect file paths and top-level symbols (class names, function names, exported identifiers) that match.
 
-```bash
-git -C <repo_path> remote get-url origin 2>/dev/null
-```
+4. **Read top candidates.** For each theme, open the head (~80 lines) of the top 2–3 matching files. Use that to characterise the capability in a one-line `note`.
 
-The last path segment of the URL (with any trailing `.git` stripped) MUST equal
-`repo_url_slug`. If it does not, return `status: REPO_MISSING` with reason:
-`"repo at <repo_path> has remote slug '<actual>'; expected '<repo_url_slug>'"`.
-The orchestrator chose this path; do not silently scan the wrong repo.
+5. **Classify each theme.**
+   - `present` — clear existing implementation, with at least one authoritative file / symbol / package.
+   - `partial` — related code exists but does not cover the theme's full scope (e.g. half the flow is implemented; or the data layer exists but the UI doesn't; or the feature is behind a disabled feature flag).
+   - `absent` — no matching code after all searches; the theme is a pure gap.
+   - `error` — a search step failed (permission error on a sub-tree, file-read error, timeout). Record the reason and move on; do NOT abort the whole scan.
 
-### Step 2 — Prep step (optional; controlled by `refresh`)
-
-1. Run `git -C <repo_path> rev-parse --abbrev-ref HEAD 2>/dev/null` to record current branch.
-2. Run `git -C <repo_path> status --porcelain 2>/dev/null`.
-   - If output is non-empty AND either `refresh.*` flag is `true` → return `status: DIRTY_TREE`. Orchestrator escalates.
-   - If output is non-empty AND both are `false` → proceed; note in `prep.refresh_note`.
-
-3. If `refresh.switch_to_default_branch`:
-   - Detect default branch: `git -C <repo_path> symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'`; fallback to `main`, then `master`.
-   - Run `git -C <repo_path> checkout <default>`.
-   - On failure (RO mount, detached HEAD, dirty tree) → return `status: REFRESH_BLOCKED` with reason.
-
-4. If `refresh.pull`:
-   - Run `timeout 60 git -C <repo_path> pull --ff-only`.
-   - On failure or timeout (exit 124) → return `status: REFRESH_BLOCKED` with reason.
-
-Record `prep.branch_at_scan`, `prep.refreshed`, `prep.refresh_note`.
-
-### Step 3 — Filesystem scan (for each capability theme)
-
-For each theme in `capability_themes`:
-
-**3a. Keyword extraction**
-
-Derive search keywords from the theme phrase:
-- Split on spaces; drop stop-words (a, an, the, in, for, to, with, of, and, or, is, are, be, at, by, on, as, its, this, that, from, into, not, no, new, old, all, via, per, use, used, using, do, does, when, which, based, aware, support, update, enable, allow, handle, add, get, set, run, has, have, should, can, will, need, make, check)
-- Add any matching entries from `search_hints.keywords`
-- Use lowercase for case-insensitive search
-
-**3b. File discovery**
-
-Run (for each keyword):
-```bash
-rg -l -i -e "<keyword>" <repo_path>   # or scoped to search_hints.paths if provided
-```
-
-Combine all unique matching file paths across keywords for this theme.
-If `search_hints.paths` is provided, restrict the search root.
-
-**3c. Symbol search** (if `search_hints.symbols` provided)
-
-For each symbol:
-```bash
-rg -n "<symbol>" <repo_path>
-```
-
-Add any additional files found to this theme's candidate list.
-
-**3d. File reading**
-
-For the top N=15 candidate files per theme (prioritise by: number of keyword hits, then path relevance):
-- Read the first ~80 lines using `view` with `view_range: [1, 80]`
-- Identify top-level symbols (class names, function names, interface names) from the file header
-- Read any obvious docstring/module-level comment to characterise the capability
-
-**3e. Classify**
-
-Based on the evidence, classify the theme:
-- `present` — clear existing implementation found; cite 1–3 primary files + key symbols
-- `partial` — related code exists but clearly incomplete (stub, TODO, or only part of the capability); cite what exists + describe what is missing
-- `absent` — no relevant code found; this is a gap the new Epic must implement
-
----
+6. **Write the reusable/gap prose.**
+   - `reusable_components` — 1–2 paragraphs naming the existing code the new Epic can build on (by file and symbol). Anchor every mention in the `capability_map` evidence.
+   - `gap_summary` — 1–2 paragraphs on what needs to be implemented from scratch. Distinguish "partial — finish the remaining half" from "absent — build the whole thing".
 
 ## Output
 
-Return the structured handoff (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/code-scanner/references/handoff.md` for the exact schema).
+```yaml
+status:    OK | PARTIAL | REPO_MISSING | DIRTY_TREE | REFRESH_BLOCKED | EMPTY
+repo:      <short repo name — the basename of repo_path>
+repo_path: <absolute path as received in input>
+capability_map:
+  - theme: <theme text>
+    classification: present | partial | absent | error
+    evidence:
+      - path: <relative to repo>
+        symbols: [<names>]
+        note: <one-line characterisation>
+    gap_summary: |
+      <only when classification == partial or absent — what's missing>
+    error: <only when classification == error — one-line reason>
+reusable_components: |
+  <1–2 paragraphs: what existing code the new Epic can build on>
+gap_summary: |
+  <1–2 paragraphs: what needs to be implemented from scratch>
+```
 
----
+- `status: OK` — every theme was scanned and classified (including classifications of `absent`, which is a legitimate scan result, not a failure).
+- `status: PARTIAL` — scan completed but at least one theme has `classification: error`. Failing themes do NOT abort the scan; this mirrors `diff-summarizer`'s `PARTIAL` status for consistent caller recovery.
+- `status: EMPTY` — scan ran cleanly but every theme classified as `absent`. This is not an error; it's informative data for the Epic writer.
+- `status: REPO_MISSING` / `DIRTY_TREE` / `REFRESH_BLOCKED` — prep step failed; no scan performed.
 
-## Path reference
+## Hard rules
 
-This skill is installed at:
-`~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/code-scanner/`
-
-Handoff schema: `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/code-scanner/references/handoff.md`
+- NEVER modify files under `repo_path`. This agent reads and classifies.
+- NEVER commit, create branches, cherry-pick, reset, or rebase. Prep step operations are limited to `git status`, `git symbolic-ref`, `git remote set-head`, `git switch`, `git pull --ff-only`.
+- NEVER make HTTPS / REST calls to any git host. All scan work is on the local clone.
+- NEVER switch away from the detected default branch after the prep step. If the user's workflow requires a different branch, the caller must pre-configure it; this agent does not accept a branch override.
+- NEVER invent a theme's classification without evidence. If no files match, classify `absent`.
+- NEVER over-claim reuse. `reusable_components` is conservative — it names code the new Epic can genuinely build on, not tangentially-related code.
+- If `search_hints` are empty AND the theme text alone tokenises to noise words (e.g. "Improve user experience"), return `classification: error` for that theme with reason `search hints insufficient to scan`. Do not spray-grep the whole repo and invent a classification.
+- Cap each theme's scan at 30 seconds of wall time. If a theme's searches exceed that budget, return `classification: error` with reason `theme scan exceeded 30-second budget` and continue to the next theme.

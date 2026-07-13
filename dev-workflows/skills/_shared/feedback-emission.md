@@ -145,7 +145,7 @@ Persist **only** signals about the dev-workflows plugin itself:
 - Corrective interactions captured by `prompt:*` (any command output the user
   had to fix).
 
-**Do NOT persist target-project tooling advice** — project `CLAUDE.md` rules,
+**Do NOT persist target-project tooling advice** — project `copilot-instructions.md` rules,
 target-repo hooks, and other repo-specific suggestions stay in
 `impl-maintenance`'s in-session report, not the feedback file. That advice is
 for the engineer's current repo, not the plugin maintainer.
@@ -153,7 +153,7 @@ for the engineer's current repo, not the plugin maintainer.
 When projecting an `impl-maintenance` report (§6 `emit-auto`), the plugin-facing
 slice is exactly its **Command workflow improvements**, **New agents / skills**,
 and **Reference docs** (paths under `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows`) sections, plus the
-**Key observations** that triggered them. Discard its **CLAUDE.md rules** and
+**Key observations** that triggered them. Discard its **copilot-instructions.md rules** and
 **Hooks** sections (target-project advice).
 
 ## 5. Interaction model — silent, high-recall
@@ -235,4 +235,4 @@ the run needed). It does **NOT** fire for: a code / doc / Epic review **BLOCK**
 (a defect in the *work*, not the plugin); an environment / user halt
 (repo-missing, dirty-tree, jira-not-found, refresh-blocked, and the other
 `escalation-rules.md` cases); or user cancellation. The §4 plugin-facing scoping
-applies (never target-project `CLAUDE.md` / hook advice).
+applies (never target-project `copilot-instructions.md` / hook advice).

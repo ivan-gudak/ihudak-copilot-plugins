@@ -1,204 +1,155 @@
 ---
 name: diff-summarizer
-description: "Sub-agent for use case A (impl:jira:docs:). Given a local git clone path and one or more Bitbucket/GitHub PR identifiers, resolves each PR against local refs using four strategies (PR ref, branch search, merge-commit search, issue-key grep), produces a prose diff summary per PR, and returns an aggregate per-repo summary. All resolution is pure local git — no HTTPS calls, no Bitbucket REST API, no gh CLI. Invoked in parallel by impl:jira: (Phase 5)."
-tools: [view, grep, glob, bash]
+description: "Reads a single code repository's PR diff(s) and returns a documentation-focused summary. Host-aware resolver — uses the gh CLI for GitHub when available, falls back to pure-local-git strategies for Bitbucket Cloud, Bitbucket Server, and GitHub when gh is absent. Designed for parallel invocation (one instance per repo, capped at 4 concurrent by the caller). Model tier assigned by the caller per the model-routing policy (no fixed pin)."
+tools: [view, glob, grep, bash]
 ---
 
-# `diff-summarizer` — PR Diff Summary Sub-Agent
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/handoff/diff-summarizer.md` for the exact input/output document format.
 
-Invoked by the `impl:jira:` orchestrator at Phase 5 (use case A only).
-One instance per repository; all repos are launched in parallel in a single orchestrator response.
+Summarise a single code repository's PR diff(s) from a documentation-consumer's point of view. One instance per repo; the caller (the `document:` command) spawns up to 4 concurrent instances per batch.
 
-> **No external API calls.** PR URLs are identifiers only. All resolution uses
-> `git` on the locally-cloned repo at `repo_path`. The only network hop is
-> the `git fetch` / `git pull` against the configured (SSH) remote during the prep step.
-
----
-
-## Input
-
-The orchestrator passes this block verbatim:
+## Inputs
 
 ```yaml
-repo_path: <absolute path to the locally-cloned repo — e.g. /workspace/cluster-repo,
-            /repos/cluster, ~/projects/cluster. Must contain a .git directory or
-            be a bare clone. The orchestrator resolves repo URL slug → local path
-            in Phase 4; this agent does NOT search the filesystem.>
-repo_url_slug: <the URL slug from the PR URL (e.g. "cluster" for
-                bitbucket.../repos/cluster/...). Used only for cross-checking
-                that repo_path's `git remote get-url origin` matches the slug —
-                if it does not, return status: REPO_MISSING with a clear reason.>
+repo_path:   <absolute path to a local clone, e.g. /workspace/<repo-name>>
+repo_url_slug: <repo slug from the PR URL, e.g. "cluster"; optional>
 pr_refs:
-  - url:                 <full Bitbucket/GitHub PR URL — identifier only, never fetched>
-    pr_id:               <numeric id as string>
-    issue_keys:          [<jira keys from the link title, e.g. ["MGD-1127"]>]
-    title_hint:          <link text from markdown>
-    status:              MERGED | OPEN | DECLINED | UNKNOWN
-    branch_hint:         <optional — source branch name from the export, used
-                          by Strategy 0; omit if not provided>
-    target_branch_hint:  <optional — target branch name from the export>
+  - url:         <full PR URL>
+    host:        github_cloud | bitbucket_cloud | bitbucket_server | other
+    repo:        <repo name>
+    owner:       <github_cloud: <OWNER>; bitbucket_cloud: <WORKSPACE>; null otherwise>
+    pr_id:       <id>
+    branch_from: <feature branch from jira-reader>
+    branch_to:   <target branch from jira-reader>
+    title:       <link text>
+    status:      MERGED | OPEN | DECLINED | UNKNOWN
 context: |
-  <2–4 sentences: what Jira context this repo's PRs relate to>
+  <what this repo's PRs relate to — for documentation focus>
+jira_keys_hierarchy:   # optional; passed by caller to enable Strategy 4 cross-key grep
+  - <VI-KEY>
+  - <every Epic/Story/Sub-task/Research/RFA/Bug key discovered by jira-reader>
 refresh:
-  fetch: true     # default true
-  pull:  false    # default false
-model_routing:
-  classification: SIGNIFICANT | MODERATE
-  # ... rest of block from orchestrator
+  fetch: true   # default true
+  pull:  false  # default false — historical PR diffs do not need the current branch tip;
+                # pulling risks moving HEAD away from the merge commit we want to reach.
 ```
 
----
+Refuse to run without `repo_path` and at least one element in `pr_refs`.
 
-## Process
+When `repo_url_slug` is provided, before summarising run
+`git -C <repo_path> remote get-url origin`, strip a trailing `.git`, and compare
+the URL's last path segment to `repo_url_slug`. On mismatch, return
+`status: REPO_MISSING` with a note naming both slugs — do NOT summarise the wrong
+repository. When `repo_url_slug` is absent, trust `repo_path` as given.
 
-### Step 1 — Validate repo
+## Resolver selection by host
 
-Check that `repo_path` exists and contains a `.git` directory (or is a bare clone).
-- If not → return `status: REPO_MISSING` immediately.
+Inspect `pr_refs[*].host` and route per-PR. Rule: **if the URL is on a cloud service AND an official CLI is available locally, use the CLI; otherwise fall back to pure-local-git strategies against the cloned repo.**
 
-If `repo_url_slug` was provided, additionally verify that the resolved repo
-matches the expected upstream:
+| Category | Detected by | Cloud CLI (preferred when installed + authenticated) | Fallback |
+|---|---|---|---|
+| `github_cloud` | `host == github.com` | `gh` CLI (see **GitHub resolver** below) | Local-git Strategies 1–4 |
+| `bitbucket_cloud` | `host == bitbucket.org` | none shipped (no vetted official CLI at time of writing) | Local-git Strategies 1–4 |
+| `bitbucket_server` | `host` contains the substring `bitbucket` and is NOT `bitbucket.org` | none | Local-git Strategies 1–4 |
+| `other` | anything else | — | Record as `unresolved` with `reason: unsupported host <host>`; caller escalates |
 
-```bash
-git -C <repo_path> remote get-url origin 2>/dev/null
-```
+**Fallback semantics:** when a cloud URL's preferred CLI is not installed or not authenticated on the host, silently fall back to the local-git strategies. The repo must still be cloned under the `repo_path` for the fallback to succeed; if it isn't, the per-PR result is `unresolved` with `reason: CLI not available and branch/merge-commit search did not resolve`.
 
-The last path segment of the URL (with any trailing `.git` stripped) MUST equal
-`repo_url_slug`. If it does not, return `status: REPO_MISSING` with reason:
-`"repo at <repo_path> has remote slug '<actual>'; expected '<repo_url_slug>'"`.
-The orchestrator chose this path; do not silently summarise the wrong repo.
+## URL parse notes
 
-### Step 2 — Prep step
+- **Bitbucket Server** — extract only `<REPO_NAME>` for the local-lookup path. `<PROJECT_KEY>` identifies the Bitbucket project namespace on the server and plays no role in local resolution.
+- **Bitbucket Cloud** — `<WORKSPACE>` is analogous to Server's `<PROJECT_KEY>` and is not used for local lookup.
+- **GitHub** — `<REPO_NAME>` is the only piece used for the filesystem path; `<OWNER>` is passed to `gh --repo <OWNER>/<REPO>` but not used in the path.
 
-1. Run `git -C <repo_path> status --porcelain`.
-   - If output is non-empty AND `refresh.fetch` or `refresh.pull` is `true` → return `status: DIRTY_TREE`. The orchestrator will escalate.
-   - If output is non-empty AND both are `false` → proceed (user opted out of refresh; dirty tree noted in `prep.refresh_note`).
+## Local-git strategies (pure local; no HTTPS)
 
-2. If `refresh.fetch`:
-   - Run `timeout 60 git -C <repo_path> fetch --all --prune`.
-   - On non-zero exit (auth error, network issue, RO mount, or timeout) → return
-     `status: REFRESH_BLOCKED` with the error in `prep.refresh_note`. If the exit
-     code is 124 (GNU `timeout` SIGTERM), report
-     `prep.refresh_note: "git fetch timed out after 60s"`.
+Used for Bitbucket Server, Bitbucket Cloud, and GitHub when `gh` is unavailable.
 
-3. If `refresh.pull`:
-   - Detect default branch: `git -C <repo_path> symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'`; fallback to `main`, then `master`.
-   - Run `git -C <repo_path> checkout <default>` and
-     `timeout 60 git -C <repo_path> pull --ff-only`.
-   - On failure or timeout → return `status: REFRESH_BLOCKED` with reason.
+1. **Strategy 1 — Bitbucket Server PR refs (optimistic; usually absent).** Try `git rev-parse refs/pull-requests/<pr_id>/from`. If present, use as head; derive base via `git merge-base <target_branch> <head>`. If the ref does not exist (the default for a fresh clone), fall through to Strategy 2. Do NOT attempt to configure the refspec or fetch it at runtime — that is an explicit opt-in step for the user, not an automatic side effect. On Bitbucket Cloud and GitHub clones these refs don't exist either — Strategy 1 simply no-ops and the resolver moves on.
 
-Record `prep.fetched`, `prep.pulled`, `prep.refresh_note`.
+2. **Strategy 2 — Branch search.** Run `git branch -a --list "*<pr_id>*"` and `git branch -a --list "*<issue_key>*"`. If **exactly one** branch matches → use as head. If **0 matches** (branch deleted after merge — common for merged PRs) or **2+ matches** (multiple revisions of the feature branch, or overlapping issue keys) → fall through silently to Strategy 3. Do NOT prompt the user here; unresolved PRs are aggregated and surfaced once via the caller's escalation for "All PRs unresolved".
 
-### Step 3 — Resolve each PR (local git only)
+3. **Strategy 3 — Merge-commit search.** Run `git log --all -E --grep="[Pp]ull[ _-]?[Rr]equest[ _-]?#?<pr_id>\b" -n 5` and `git log --all -E --grep="<title_keyword>" -n 5`. The primary pattern matches the merge-commit title format `Pull request #<PR_ID>: …` produced by both Bitbucket and GitHub (note the `#` separator — not `-` or space). For a merge commit: head = `<commit>^2`, base = `<commit>^1`.
 
-For each entry in `pr_refs`, try strategies in order:
+4. **Strategy 4 — Cross-hierarchy Jira-key commit search (last resort).** If the caller supplied `jira_keys_hierarchy`, for each key run `git log --all --grep="<key>" --oneline`. Treat matches as "commits associated with this feature" rather than a specific reconstructed PR. Return every match's full diff (`git show --format= <sha>`) as a **separate per-PR entry** with `pr_id: <the PR's own id, best-effort>` and `resolved_via: jira_key_commits`. Annotate the `summary` explicitly:
+   *"Diff reconstructed from commit <sha> matched on Jira key <key>; this may not correspond to the original PR content exactly."*
 
-**Strategy 0 — Branch-hint fast path (when provided)**
+   If the original PR's merge-commit and branch are both missing (Strategies 1–3 failed) but Strategy 4 finds commits by key: the PR is **partially resolved** — content is drawn from key-matched commits, and the output notes this clearly.
 
-If `branch_hint` is present:
+   If `jira_keys_hierarchy` is not provided, fall back to the original single-key behaviour (grep only the PR's own `source_item` key) and emit candidate SHAs in `unresolved_prs` for user review.
 
-```bash
-git -C <repo_path> rev-parse "refs/heads/<branch_hint>" 2>/dev/null \
-  || git -C <repo_path> rev-parse "refs/remotes/origin/<branch_hint>" 2>/dev/null
-```
+If all four strategies fail: record the PR under `unresolved_prs` and continue. The caller handles user-facing escalation.
 
-If exactly one of these resolves to a SHA:
-- `head = <resolved sha>`
-- If `target_branch_hint` is present and resolves, use it as the merge base via
-  `git merge-base <target_branch_hint> <head>`. Otherwise fall back to the
-  default branch.
-- Record `resolved_via: branch_hint`
+**Note on non-MERGED PRs.** The default filter is MERGED-only. If the caller opts into OPEN / DECLINED / UNKNOWN PRs, expect a high rate of `unresolved`: DECLINED PRs often have no merge commit (Strategy 3 fails) and feature branches may have been deleted after decline (Strategy 2 fails). Surface the unresolved count clearly in `aggregate_summary` so the documentation writer knows what's missing.
 
-If neither ref resolves, fall through to Strategy 1.
+## GitHub resolver (via `gh` CLI, used when `host == github_cloud` AND `gh` is installed + authenticated)
 
-**Strategy 1 — Bitbucket Server pull-request refs**
+1. **Resolve head/base SHAs.** Run `gh pr view <pr_id> --repo <owner>/<repo> --json headRefOid,baseRefOid,state,title,mergeCommit`. This is the single authoritative call. `gh` handles authentication via `gh auth login` (configured once on the host).
 
-```bash
-git -C <repo_path> rev-parse refs/pull-requests/<pr_id>/from 2>/dev/null
-```
+2. **Ensure commits are local.** If `headRefOid` or `baseRefOid` is missing from the local clone (`git cat-file -e <sha>` returns non-zero), run `git fetch origin <headRefOid> <baseRefOid>`. If fetch is rejected (server refuses direct-SHA fetch), fall back to `gh pr checkout <pr_id> --repo <owner>/<repo>` which fetches the branches.
 
-If the ref exists:
-- `head = refs/pull-requests/<pr_id>/from`
-- `base = git merge-base <default-branch> <head>`
-- Record `resolved_via: pr_ref`
+3. **Produce diff.** `git diff <baseRefOid>..<headRefOid>`. Set `resolved_via: gh_cli`.
 
-**Strategy 2 — Branch search by issue key**
+4. **Failure modes:**
+   - `gh` not installed → drop to local-git strategies (do NOT set `REFRESH_BLOCKED` — the fallback may still succeed).
+   - Not authenticated → same fallback.
+   - PR not found (deleted, private, wrong repo) → record in `unresolved_prs` with the gh error; do NOT fall back (the local repo won't have it either).
 
-For each key in `issue_keys`:
-```bash
-git -C <repo_path> branch -a --list "*<KEY>*" 2>/dev/null
-```
+## Refresh step
 
-If exactly one branch matches → use as `head`, `base = git merge-base <default-branch> <head>`.
-If multiple branches match → skip (ambiguous); try next key.
-Record `resolved_via: branch_search`.
+Before resolving any PR:
 
-**Strategy 3 — Merge-commit search by PR ID or title keyword**
+1. **Verify repo exists.** If `repo_path` is not a directory, return `status: REPO_MISSING`.
+2. **Clean-tree check.** `git status --porcelain`; if non-empty AND `refresh.fetch` is true, return `status: DIRTY_TREE`.
+3. **Fetch.** If `refresh.fetch` is true: `git fetch origin`. On failure return `status: REFRESH_BLOCKED` with a one-line reason.
+4. **Pull.** If `refresh.pull` is true (default false): resolve the default branch via `git symbolic-ref --short refs/remotes/origin/HEAD` (with the usual fallback chain — `git remote set-head origin --auto`; then try `main`, then `master`); `git switch <default>` + `git pull --ff-only`. On any failure return `status: REFRESH_BLOCKED`.
 
-```bash
-git -C <repo_path> log --all --oneline --grep="pull[- ]request[- ]<pr_id>" -n 5 2>/dev/null
-git -C <repo_path> log --all --oneline --grep="<title_keyword>" -n 5 2>/dev/null
-```
+## Per-PR summary content
 
-(Use first 2–3 distinctive words from `title_hint` as `title_keyword`.)
+For each resolved PR, the `summary` prose (3–8 sentences) focuses on what a documentation writer needs:
 
-For each candidate commit, check if it is a merge commit (has `^2`):
-```bash
-git -C <repo_path> rev-parse <sha>^2 2>/dev/null
-```
+- **New behavior** — what the user can do after this change that they couldn't before.
+- **Changed behavior** — what existing behavior has been altered and how.
+- **API surface** — new commands, routes, config keys, CLI flags, public functions, environment variables, UI controls.
+- **Migration notes** — anything in the diff that implies a user-facing migration (schema change, renamed flag, deprecated behavior).
 
-If yes: `head = <sha>^2`, `base = <sha>^1`.
-Record `resolved_via: merge_commit`.
+Skip implementation detail a doc writer doesn't need (internal refactors, pure test-only changes, dependency bumps with no observable effect).
 
-**Strategy 4 — Last resort: commits referencing the issue key**
-
-```bash
-git -C <repo_path> log --all --oneline --grep="<issue_key>" -n 10 2>/dev/null
-```
-
-Do NOT auto-pick. Record all candidate SHAs under `unresolved_prs[].candidates`.
-Record `resolved_via: unresolved` with `reason: "Strategy 4 — candidates listed; needs manual selection"`.
-
-### Step 4 — Diff each resolved PR
-
-For each PR with `resolved_via != unresolved`:
-
-```bash
-git -C <repo_path> log --oneline <base>..<head>
-git -C <repo_path> diff --stat <base>..<head>
-```
-
-Cap: 200 files. If the diff stat exceeds 200 files, record only the file list and stats; skip the body for the long tail; note `diff_truncated: true`.
-
-Read the actual diff body for each file changed (up to the cap). Use `git diff <base>..<head> -- <file>` per file if needed.
-
-Count `files_changed`, `insertions`, `deletions` from `git diff --stat`.
-
-### Step 5 — Write per-PR prose summary
-
-For each resolved PR, write a prose summary (3–8 sentences) covering:
-- What changed (subsystems, patterns, refactors)
-- Which modules/packages are affected
-- Any notable patterns (e.g. new abstractions, removed legacy code, test coverage changes)
-- Any obvious risks or regressions
-
-### Step 6 — Aggregate repo summary
-
-Write 1–2 paragraphs summarising this repo's contribution to the feature:
-- Common themes across PRs
-- Overall direction of the changes
-
----
+If `resolved_via == jira_key_commits`, the summary MUST include the verbatim caveat quoted under Strategy 4.
 
 ## Output
 
-Return the structured handoff (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/diff-summarizer/references/handoff.md` for the exact schema).
+```yaml
+status:   OK | REPO_MISSING | DIRTY_TREE | REFRESH_BLOCKED | NO_PRS_RESOLVED | PARTIAL
+repo:      <short repo name — the basename of repo_path>
+repo_path: <absolute path as received in input, so callers can reference the source tree>
+per_pr:
+  - pr_id: <id>
+    resolved_via: pr_ref | branch_search | merge_commit | jira_key_commits | gh_cli | unresolved
+    summary: |
+      <prose; 3–8 sentences: new behavior, changed behavior, API surface, migration notes.
+      If resolved_via == jira_key_commits, the summary MUST note that the diff was
+      reconstructed from commits matching a Jira key and may not exactly correspond to
+      the original PR content.>
+unresolved_prs:
+  - pr_id: <id>
+    reason: <why resolution failed>
+    candidates: [<sha — first line, if Strategy 4 found any>]
+aggregate_summary: |
+  <1–2 paragraphs: what this repo contributed to the feature. If any non-MERGED PRs
+  were in scope and ended up unresolved, state the count explicitly so the doc writer
+  knows.>
+```
 
----
+`PARTIAL` is returned when some PRs resolved and others did not, or when Strategy 4 was the only path that worked for at least one PR (content correctness is reduced).
 
-## Path reference
+## Hard rules
 
-This skill is installed at:
-`~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/diff-summarizer/`
-
-Handoff schema: `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/diff-summarizer/references/handoff.md`
+- NEVER make HTTPS / REST calls to Bitbucket (Cloud or Server). All Bitbucket resolution is pure local git.
+- NEVER make HTTPS / REST calls to GitHub outside the `gh` CLI. No direct API calls, no raw `curl` to `api.github.com`.
+- NEVER mutate the repo (no commits, no branch creation, no `git reset`, no `git clean`).
+- NEVER switch the repo's HEAD when `refresh.pull` is false — leave the working tree as found.
+- NEVER hardcode a Bitbucket Server hostname. Host classification uses the substring rule documented above.
+- NEVER fabricate diff content. If a PR cannot be resolved by any strategy, record it in `unresolved_prs`.
+- If `resolved_via == jira_key_commits`, the `summary` MUST carry the explicit caveat — omitting it would silently degrade content trust.
+- On `REPO_MISSING`, `DIRTY_TREE`, `REFRESH_BLOCKED`: return immediately with the status; do NOT partially resolve any PRs.

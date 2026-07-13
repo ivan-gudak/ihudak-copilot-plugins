@@ -1,7 +1,7 @@
 ---
 name: docs-profile
 description: >
-  Scan a documentation repository and write/refresh a machine-readable docs-profile (.dev-workflows/docs-profile.yml) plus complementary CLAUDE.md guidance, as a reviewable PR. Captures spaces, dev-servers, cross-space override/shadowing, shared registries, gen3/Classic tokens, links, branch-naming, images, and prerequisites; defers changelog/owners to the dynatrace-docs-frontmatter skill. Bootstraps or refreshes the profile that document: consumes.
+  Scan a documentation repository and write/refresh a machine-readable docs-profile (.dev-workflows/docs-profile.yml) plus complementary copilot-instructions.md guidance, as a reviewable PR. Captures spaces, dev-servers, cross-space override/shadowing, shared registries, gen3/Classic tokens, links, branch-naming, images, and prerequisites; defers changelog/owners to the dynatrace-docs-frontmatter skill. Bootstraps or refreshes the profile that document: consumes.
   Activated when the user prompt starts with "docs-profile:".
 allowed-tools: view, edit, create, bash, glob, grep, task, ask_user
 ---
@@ -10,7 +10,7 @@ Profile the documentation repository: the argument (text following the `docs-pro
 
 The argument (text following the `docs-profile:` trigger) is an optional repo path (default: the current working directory), optionally followed by `--inline`. The `--inline` token is passed when `document:` (Jira mode) invokes this flow inline (its Phase 0 case (c)); it switches this command to **inline mode** — see Phase 5 step 1, step 2, step 6, and Phase 6.
 
-`docs-profile:` **bootstraps or refreshes** the machine-readable docs-profile that `document:` (Jira mode) consumes. It scans a documentation repository, synthesises a `.dev-workflows/docs-profile.yml` (and complementary CLAUDE.md guidance) that conforms to `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/dynatrace-docs/docs-profile-schema.md`, then writes the result as a **reviewable PR** — branch + commit + a drafted PR message. It never pushes or auto-merges.
+`docs-profile:` **bootstraps or refreshes** the machine-readable docs-profile that `document:` (Jira mode) consumes. It scans a documentation repository, synthesises a `.dev-workflows/docs-profile.yml` (and complementary copilot-instructions.md guidance) that conforms to `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/dynatrace-docs/docs-profile-schema.md`, then writes the result as a **reviewable PR** — branch + commit + a drafted PR message. It never pushes or auto-merges.
 
 The command is **generic** — it works on any docs repo — but produces a richer profile when it detects a multi-space / docstack repo (it then populates `cross_space_override` and `shared_registries`; a single-space repo omits them).
 
@@ -87,7 +87,7 @@ Dispatch a **read-only** detection subagent **pinned to the §2.1 mid-tier chain
   > 3. **Shared registries** — presence of `schema-ids.yml` and `schema-mappings.yml` (search the tree); report their paths and whether both exist.
   > 4. **Templating tokens** — grep the content roots for: `{{tag kind='latest'}}` (gen3/Latest marker), `::app-settings::` (gen3 settings breadcrumb), and `{{#if project=` (project conditionals — list the distinct project values seen, e.g. saas/managed/classic).
   > 5. **Content + snippet roots** — every `*/_content` and every `*/_snippets` directory (e.g. `dynatrace/_content`, `dynatrace/_snippets`, `managed/_content`, `managed/_snippets`). This determines the `spaces[]` list: one rendered space per content root.
-  > 6. **Branch-naming + internal-link conventions** — read CONTRIBUTING.md, CONTRIBUTION.md, README.md, DOCUMENTATION-GUIDELINES.md, and CLAUDE.md at the repo root (and `.claude/`). Quote any documented branch-naming pattern (e.g. `<initials>/<JIRA-KEY>-<slug>`) and any internal-link convention (e.g. `[text](<postid>)` where postid comes from target frontmatter).
+  > 6. **Branch-naming + internal-link conventions** — read CONTRIBUTING.md, CONTRIBUTION.md, README.md, DOCUMENTATION-GUIDELINES.md, and .github/copilot-instructions.md at the repo root (and `.github/`). Quote any documented branch-naming pattern (e.g. `<initials>/<JIRA-KEY>-<slug>`) and any internal-link convention (e.g. `[text](<postid>)` where postid comes from target frontmatter).
   > 7. **Image policy** — any documented rule for screenshots/images (CDN-hosted vs committed binaries); quote the source.
   > 8. **Prerequisites** — anything a dev server needs before `*:start` boots (e.g. a `.docstack` toolchain / shim, an axios version pin, an env var); quote the source.
   >
@@ -102,7 +102,7 @@ Dispatch a **read-only** detection subagent **pinned to the §2.1 mid-tier chain
 On the §2 powerful chain (`planning_model`), turn the detection report into a draft `docs-profile.yml`. This synthesis is the SIGNIFICANT reasoning step, so it runs on the strongest available reasoning model (Opus), pinned via the `task` tool's `model:` override — not the §2.1 detection chain.
 
 → task(agent_type: "general-purpose", model: `<planning_model — §2 chain: claude-opus-4.8, fallback per §2>`):
-  > "Synthesise a docs-profile from a detection report. This is a planning/synthesis task, not a code change — return the drafted YAML + drafted CLAUDE.md additions, nothing else; do not write files.
+  > "Synthesise a docs-profile from a detection report. This is a planning/synthesis task, not a code change — return the drafted YAML + drafted copilot-instructions.md additions, nothing else; do not write files.
   >
   > Schema (the draft MUST conform exactly): `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/dynatrace-docs/docs-profile-schema.md`
   > Detection report: [paste the full Phase 2 report]
@@ -117,9 +117,9 @@ On the §2 powerful chain (`planning_model`), turn the detection report into a d
   > - `internal_links.convention`, `branch_naming.pattern`, `images.policy`, `prerequisites[]`: fill from detection; leave a field out rather than inventing it.
   > - `frontmatter:` is **POINTERS ONLY** — set `owned_by_skill: dynatrace-docs-frontmatter`, `changelog_guidelines: references/dynatrace-docs/changelog-guidelines.md`, `managed_owners: references/dynatrace-docs/managed-owners.txt`. NEVER copy any changelog or owners rule text into the profile.
   > - Mark every field as `detected` (grounded in the report) or `needs-confirmation` (inferred / not found) so the orchestrator knows what to ask in Phase 4.
-  > - Separately, draft minimal complementary **CLAUDE.md additions** ONLY for conventions not already covered by the dynatrace-docs-frontmatter skill or its reminder hook (e.g. the cross-space shadowing gotcha, the shared-registry lock-step rule, dev-server sequencing). Do NOT restate changelog/owners — defer to the skill."
+  > - Separately, draft minimal complementary **copilot-instructions.md additions** ONLY for conventions not already covered by the dynatrace-docs-frontmatter skill or its reminder hook (e.g. the cross-space shadowing gotcha, the shared-registry lock-step rule, dev-server sequencing). Do NOT restate changelog/owners — defer to the skill."
 
-**Wait for the synthesis.** Hold the drafted `docs-profile.yml` and the drafted CLAUDE.md additions for Phase 4. If Opus was unavailable and the synthesis fell back to Sonnet, note it in `model_routing.notes` and carry it to Phase 6.
+**Wait for the synthesis.** Hold the drafted `docs-profile.yml` and the drafted copilot-instructions.md additions for Phase 4. If Opus was unavailable and the synthesis fell back to Sonnet, note it in `model_routing.notes` and carry it to Phase 6.
 
 ---
 
@@ -155,7 +155,7 @@ Typical gaps:
   Do not overwrite without this confirmation.
 - **Absent** → bootstrap: proceed to Phase 5 with the confirmed draft.
 
-Record the final, confirmed `docs-profile.yml` and CLAUDE.md additions, and tag each field `detected` vs `user-supplied` for the Phase 6 report.
+Record the final, confirmed `docs-profile.yml` and copilot-instructions.md additions, and tag each field `detected` vs `user-supplied` for the Phase 6 report.
 
 ---
 
@@ -181,16 +181,16 @@ Produce a reviewable PR in the **target repo** (never the plugin). **Never push 
    ```
    Then base the branch on the repo's default branch so the profile PR is cut from a clean base: resolve the base (`git -C <repo-root> symbolic-ref --short refs/remotes/origin/HEAD`; fall back to `main`, then `master`) and run `git -C <repo-root> switch <base> && git -C <repo-root> pull --ff-only` (the clean-tree check above already ran; if the fast-forward pull fails, offer the same stash/proceed/cancel choices). Then create the branch: `git -C <repo-root> switch -c <name>` (or `git -C <repo-root> switch <name>` if it already exists).
 
-3. **Write the profile.** Create `<repo-root>/.dev-workflows/` if absent, then write the confirmed `.dev-workflows/docs-profile.yml`. It MUST conform to `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/dynatrace-docs/docs-profile-schema.md`. Apply the confirmed complementary CLAUDE.md additions to the repo's root `CLAUDE.md` (create the file if absent) — minimal, additive, scoped edits only; never restate changelog/owners rules owned by the dynatrace-docs-frontmatter skill.
+3. **Write the profile.** Create `<repo-root>/.dev-workflows/` if absent, then write the confirmed `.dev-workflows/docs-profile.yml`. It MUST conform to `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/dynatrace-docs/docs-profile-schema.md`. Apply the confirmed complementary copilot-instructions.md additions to the repo's root `copilot-instructions.md` (create the file if absent) — minimal, additive, scoped edits only; never restate changelog/owners rules owned by the dynatrace-docs-frontmatter skill.
 
 4. **Format / lint.** If the repo has a formatter or linter (the `format`/`lint` commands captured in the profile), run it on the written files; fix anything it flags on those files. Skip silently if none is configured.
 
-5. **Commit.** `git -C <repo-root> add .dev-workflows/docs-profile.yml CLAUDE.md` (only the files this command wrote), then commit:
+5. **Commit.** `git -C <repo-root> add .dev-workflows/docs-profile.yml copilot-instructions.md` (only the files this command wrote), then commit:
    ```
    git -C <repo-root> commit -m "docs: add/refresh .dev-workflows/docs-profile.yml"
    ```
 
-6. **Draft the PR message.** **Inline mode** (`--inline`): skip this step — control returns to `document:` (Jira mode), which owns the single PR draft (its Phase 8.5). **Standalone:** Detect the host (`git -C <repo-root> remote get-url origin`) and draft a copy-paste-ready PR title + body for Bitbucket or GitHub (whichever the remote indicates). Title e.g. `docs: bootstrap docs-profile for document:`; body summarising the profile (spaces, dev-servers, cross-space override, tokens, branch-naming, images, prerequisites) and the CLAUDE.md additions. **Do not push, do not open the PR via any CLI** — present the branch name + the drafted message for the user to push and open themselves.
+6. **Draft the PR message.** **Inline mode** (`--inline`): skip this step — control returns to `document:` (Jira mode), which owns the single PR draft (its Phase 8.5). **Standalone:** Detect the host (`git -C <repo-root> remote get-url origin`) and draft a copy-paste-ready PR title + body for Bitbucket or GitHub (whichever the remote indicates). Title e.g. `docs: bootstrap docs-profile for document:`; body summarising the profile (spaces, dev-servers, cross-space override, tokens, branch-naming, images, prerequisites) and the copilot-instructions.md additions. **Do not push, do not open the PR via any CLI** — present the branch name + the drafted message for the user to push and open themselves.
 
 ---
 
@@ -218,8 +218,8 @@ SIGNIFICANT — cross-cutting synthesis of the whole docs repo; output steers al
 - omitted: [e.g. "cross_space_override + shared_registries — single-space repo"]
 - frontmatter: pointers only → dynatrace-docs-frontmatter skill (+ changelog-guidelines.md, managed-owners.txt); changelog/owners NOT re-specified
 
-### CLAUDE.md additions
-- [what was added to the repo's CLAUDE.md, or "none — all conventions covered by the dynatrace-docs-frontmatter skill"]
+### copilot-instructions.md additions
+- [what was added to the repo's copilot-instructions.md, or "none — all conventions covered by the dynatrace-docs-frontmatter skill"]
 
 ### Branch
 <branch name created>

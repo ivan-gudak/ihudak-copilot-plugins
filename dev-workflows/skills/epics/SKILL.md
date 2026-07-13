@@ -491,7 +491,7 @@ Then spawn all four maintenance agents in a **single Agent message**. They are i
 > "Post-write instructions review. Change summary:
 > [paste change summary block]
 >
-> Check CLAUDE.md in the project root and ~/.copilot/CLAUDE.md (global).
+> Check .github/copilot-instructions.md in the project root and ~/.copilot/copilot-instructions.md (global).
 > Determine if any Epic-drafting rules, guidance, or guardrails are missing because of what this run revealed (e.g., a domain-specific acceptance-criteria pattern, a naming convention for Epic files, a scope-boundary rule that caught you out).
 > Skip if: the run followed existing conventions with no surprises.
 > If YES: apply minimal, additive, scoped changes only.
@@ -520,7 +520,7 @@ returns, project its plugin-facing slice into the specs repo by citing
 renders only the report's **Command workflow improvements**, **New agents /
 skills**, and plugin **Reference docs** sections plus the **Key observations**
 that triggered them (§4 plugin-facing predicate) — never target-project
-`CLAUDE.md`/hook advice — as `origin: auto` entries, dedupes by stable `id`
+`copilot-instructions.md`/hook advice — as `origin: auto` entries, dedupes by stable `id`
 (§3), resolves the target via the §2 specs-first ladder, and writes silently.
 List the persisted path (or "no plugin-facing signal — nothing persisted") in
 the Phase 9 report's Session learnings line. ADDITIVE — the impl-maintenance

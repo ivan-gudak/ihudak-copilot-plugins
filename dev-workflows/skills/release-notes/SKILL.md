@@ -270,7 +270,7 @@ and then persists the plugin-facing slice of its report as session feedback.
    `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/.plugin/plugin.json`). `emit-auto` renders only
    the report's **Command workflow improvements**, **New agents / skills**, and
    plugin **Reference docs** sections plus the **Key observations** that
-   triggered them (§4) — never target-project `CLAUDE.md`/hook advice — as
+   triggered them (§4) — never target-project `copilot-instructions.md`/hook advice — as
    `origin: auto` entries, dedupes by stable `id` (§3), resolves the target via
    the §2 specs-first ladder, and writes silently.
 3. **Surface** the persisted path (or "no plugin-facing signal — nothing

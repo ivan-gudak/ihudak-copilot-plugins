@@ -1,14 +1,20 @@
 ---
 name: upgrade-executor
-description: "Sub-agent for the upgrade: workflow. Handles Phase 2 (execution) for a single component: apply the upgrade plan produced by upgrade-planner, run the build, verify tests via test-baseliner, and auto-fix any test code breakage caused by the new version's API changes. Invoked sequentially by the upgrade orchestrator. NOT triggered by direct user prompts. Leaves all changes uncommitted on the current branch."
+description: >
+  Agent for the upgrade workflow. Handles Phase 2 (execution) for a single
+  component: apply the upgrade plan produced by upgrade-planner, run the build,
+  verify tests via test-baseliner, and auto-fix any test code breakage caused by
+  the new version's API changes. Invoked sequentially by the upgrade: command orchestrator.
+  NOT triggered by direct user prompts. Leaves all changes uncommitted on the
+  current branch.
 tools: [view, grep, glob, bash, edit, create]
 ---
 
-# upgrade-executor — Upgrade Execution Sub-agent
+# upgrade-executor — Upgrade Execution Agent
 
-Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade-executor/references/handoff.md` for the exact input/output document format.
-Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade/references/ecosystems.md` for per-ecosystem update commands.
-Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/test-baseliner/references/handoff.md` for the test-baseliner handoff format.
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/handoff/upgrade-executor.md` for the exact input/output document format.
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/upgrade/ecosystems.md` for per-ecosystem update commands.
+Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/handoff/test-baseliner.md` for the test-baseliner handoff format.
 
 ## Process
 
@@ -22,7 +28,7 @@ Receive one upgrade plan with `status: READY`.
 
 1. **Apply changes** — Update every file listed in the plan's `files` array.
    For each related upgrade in `related`, apply those version changes too.
-   Use ecosystem-appropriate commands (see `upgrade/references/ecosystems.md`).
+   Use ecosystem-appropriate commands (see `references/upgrade/ecosystems.md`).
 
 2. **Build** — Run the project build (compile only). On failure see "Build failure" below.
 
@@ -31,7 +37,7 @@ Receive one upgrade plan with `status: READY`.
    - `status: REGRESSIONS` → follow "Test regression" below.
    - `status: RUN_FAILED` → revert all changes, set `status: BUILD_FAILED`.
 
-4. **Output** — Produce the summary record (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade-executor/references/handoff.md`).
+4. **Output** — Produce the summary record (see `references/handoff/upgrade-executor.md`).
 
 ## Build failure
 
@@ -65,13 +71,13 @@ If the orchestrator passes a `model_routing` block (see
   for SIGNIFICANT / HIGH-RISK upgrades), **stop after step 2 (Build)** and
   return `status: AWAITING_REVIEW` with the list of files changed and the
   build outcome. **Do NOT run `test-baseliner verify`.** The orchestrator will
-  perform an Opus code review, then re-invoke this sub-agent with
+  perform an Opus code review, then re-invoke this agent with
   `phase: verify-resume` to run step 3 onward.
 - For SIMPLE / MODERATE classification (or no `model_routing` block), proceed
   through all steps as normal.
 
-This sub-agent itself runs under whichever model the orchestrator selected.
+This agent itself runs under whichever model the orchestrator selected.
 For SIGNIFICANT / HIGH-RISK upgrades the orchestrator may still leave this
-sub-agent on the current model or Sonnet — Opus is reserved for the planner
+agent on the current model or Sonnet — Opus is reserved for the planner
 and the post-impl review.
 

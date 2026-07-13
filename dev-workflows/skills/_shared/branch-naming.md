@@ -1,7 +1,7 @@
 # Branch Naming (Shared Policy)
 
 This document is the **single source of truth** for how every orchestrator that
-creates a git branch (`impl:`, `impl:docs:`, `impl:jira:`, `fix-vuln:`,
+creates a git branch (`implement:`, `document:`, `epics:`, `vuln:`,
 `upgrade:`, and their sub-agents) selects the branch **prefix**. Each
 orchestrator still decides its own *slug* — typically based on the task
 description, Jira key, or component name.
@@ -59,10 +59,10 @@ Each orchestrator declares its own fallback prefix when 1.1–1.3 all yield noth
 
 | Workflow | Fallback prefix |
 |---|---|
-| `impl:code:` (skill: `impl`) | `feat/` |
-| `impl:docs:` (skill: `impl-docs`) | `docs/` |
-| `impl:jira:docs:` / `impl:jira:epics:` | `docs/` |
-| `fix-vuln:` (skill: `fix-vuln`) | `fix/` |
+| `implement:` (skill: `implement`) | `feat/` |
+| `document:` doc-edit mode (skill: `document`) | `docs/` |
+| `document:` / `epics:` Jira mode | `docs/` |
+| `vuln:` (skill: `vuln`) | `fix/` |
 | `upgrade:` (skill: `upgrade`) | `chore/` |
 
 ### 1.5 User override (mandatory escalation when 1.4 is hit)
@@ -100,10 +100,10 @@ for future runs:
 
 Each orchestrator owns its own slug derivation:
 
-- `impl:code:` — first 6–8 content words of description → kebab-case
-- `impl:docs:` — first 6–8 content words of description → kebab-case
-- `impl:jira:` — `<JIRA_KEY>-<first 4–6 content words of VI summary>`
-- `fix-vuln:` — `<JIRA-ID>-<CVE-ID>` or `<NOJIRA-CVE-ID>` or `<CVE-ID>`
+- `implement:` — first 6–8 content words of description → kebab-case
+- `document:` — first 6–8 content words of description → kebab-case
+- `document:` / `epics:` Jira mode — `<JIRA_KEY>-<first 4–6 content words of VI summary>`
+- `vuln:` — `<JIRA-ID>-<CVE-ID>` or `<NOJIRA-CVE-ID>` or `<CVE-ID>`
 - `upgrade:` — `upgrade-<component>-to-<version>` or `upgrade-<first>-and-<N>-more`
 
 If `<prefix>/<slug>` already exists, append the first 7 chars of HEAD's SHA:

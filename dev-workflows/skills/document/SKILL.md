@@ -457,7 +457,7 @@ Handle the `status` and `gaps`:
   - `"skip with note in final report"` → list in the checklist display; carry forward into the Phase 9 `### Skipped items`. Does not block approval.
 - **`status: PARTIAL`** alone (without user-asked gaps) is presented to the user alongside the checklist so the approval decision is informed.
 
-Present the checklist (with any gaps + dispositions, and — when the planner returned a non-empty `repo_authoring_guidance` — the repo-specific authoring rules it extracted from the repo's own guidance files, so the user sees "this repo's CONTRIBUTING.md / CLAUDE.md requires …" before approving):
+Present the checklist (with any gaps + dispositions, and — when the planner returned a non-empty `repo_authoring_guidance` — the repo-specific authoring rules it extracted from the repo's own guidance files, so the user sees "this repo's CONTRIBUTING.md / copilot-instructions.md requires …" before approving):
 ```
 choices: ["Approve & write (Recommended)", "Adjust (describe)", "Cancel"]
 ```
@@ -793,7 +793,7 @@ Then spawn all four Phase 4-style maintenance agents in a **single Agent message
 > "Post-write instructions review. Change summary:
 > [paste change summary block]
 >
-> Check CLAUDE.md in the project root and ~/.copilot/CLAUDE.md (global).
+> Check .github/copilot-instructions.md in the project root and ~/.copilot/copilot-instructions.md (global).
 > Determine if any doc-writing rules, guidance, or guardrails are missing because of what this run revealed (e.g., a repo-specific frontmatter field that must always be present, a cross-link pattern that's easy to miss, an image-policy rule that caught you out).
 > Skip if: the run followed existing conventions with no surprises. Only update if a concrete, recurring rule would have prevented a decision point or misunderstanding.
 > If YES: apply minimal, additive, scoped changes only — do not rewrite sections wholesale.
@@ -822,7 +822,7 @@ returns, project its plugin-facing slice into the specs repo by citing
 `emit-auto` renders only the report's **Command workflow improvements**, **New
 agents / skills**, and plugin **Reference docs** sections plus the **Key
 observations** that triggered them (§4 plugin-facing predicate) — never
-target-project `CLAUDE.md`/hook advice — as `origin: auto` entries, dedupes by
+target-project `copilot-instructions.md`/hook advice — as `origin: auto` entries, dedupes by
 stable `id` (§3), resolves the target via the §2 specs-first ladder, and writes
 silently. List the persisted path (or "no plugin-facing signal — nothing
 persisted") in the Phase 9 report's Session learnings line. ADDITIVE — the
@@ -839,7 +839,7 @@ Run this phase only when Phase 6.3 wrote + committed in a git repo (write contex
 ### Step 1 — Squash (always)
 
 Fold the run into clean history before handoff:
-1. Stage the run's uncommitted docs-repo edits — Phase 8 Agent 1 (doc index / cross-links) and Agent 3 (`CLAUDE.md`) may have edited without committing; the Phase 6.2 clean-tree check means everything uncommitted is this run's work.
+1. Stage the run's uncommitted docs-repo edits — Phase 8 Agent 1 (doc index / cross-links) and Agent 3 (`copilot-instructions.md`) may have edited without committing; the Phase 6.2 clean-tree check means everything uncommitted is this run's work.
 2. Compute the squash base: if Phase 6.2 recorded `profile_commit` (inline-profiling run), base = `profile_commit` (keeps the profile-config commit as a distinct first commit → two commits); otherwise base = `git merge-base <base_branch> HEAD` (one commit).
 3. `git add` the docs-repo changes → `git reset --soft <squash-base>` → one `git commit`. The message follows `profile.commit_convention` when present (dynatrace-docs: `<JIRA-KEY> <summary>`); for a repo with no such field, infer from recent `git log` / `CONTRIBUTING`, else fall back to `<JIRA_KEY> <summary>`. NEVER put the Jira key in a reader-visible changelog — the commit message carries traceability.
 
@@ -1195,7 +1195,7 @@ Then spawn all four Phase 4 agents. They are independent and can run in any orde
 > "Post-doc-edit instructions review. Change summary:
 > [paste change summary block]
 >
-> Check CLAUDE.md in the project root and ~/.copilot/CLAUDE.md (global).
+> Check .github/copilot-instructions.md in the project root and ~/.copilot/copilot-instructions.md (global).
 > Determine if any doc-editing rules, guidance, or guardrails are missing because of what this edit revealed (e.g., a repo-specific frontmatter field that must always be present, a cross-link pattern that's easy to miss, a style rule that caught you out).
 > Skip if: the edit followed existing conventions with no surprises. Only update if a concrete, recurring rule would have prevented a decision point or misunderstanding during this edit.
 > If YES: apply minimal, additive, scoped changes only — do not rewrite sections wholesale.
@@ -1224,7 +1224,7 @@ direct mode) and `source`, and `plugin_version` (read from
 `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/.plugin/plugin.json`). `emit-auto` renders only
 the report's **Command workflow improvements**, **New agents / skills**, and
 plugin **Reference docs** sections plus the **Key observations** that triggered
-them (§4 plugin-facing predicate) — never target-project `CLAUDE.md`/hook advice
+them (§4 plugin-facing predicate) — never target-project `copilot-instructions.md`/hook advice
 — as `origin: auto` entries, dedupes by stable `id` (§3), resolves the target
 via the §2 specs-first ladder, and writes silently. List the persisted path
 (or "no plugin-facing signal — nothing persisted") in the Phase 5

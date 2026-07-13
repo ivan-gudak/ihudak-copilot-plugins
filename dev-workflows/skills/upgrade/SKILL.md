@@ -1,336 +1,199 @@
 ---
 name: upgrade
 description: >
-  Upgrade one or more components (libraries, frameworks, languages, build tools, CI/CD actions)
-  in the current repository to a target version. Triggered by the "upgrade:" command followed
-  by space-separated tokens in the form "component:version", "component:minor", "component:latest",
-  "component:lts", or bare "component" (latest compatible assumed). Works on any project regardless of
-  language or ecosystem. Upgrades are applied to the current branch with no commits or PRs.
-  Runs tests before and after each upgrade; updates test code if required by the new version.
-  Use when the user wants to keep dependencies, frameworks, languages, or CI/CD actions current.
-allowed-tools: view, edit, create, bash, glob, grep, ask_user, sql
+  Component upgrade workflow. Upgrades libraries, frameworks, runtimes, or build tools to specified or latest versions. Plans with Opus for complex upgrades, runs code review, and verifies with tests.
+  Activated when the user prompt starts with "upgrade:".
+allowed-tools: view, edit, create, bash, glob, grep, task, web_fetch, ask_user
 ---
 
-# Upgrade Components
+Upgrade components: the argument (text following the `upgrade:` trigger)
 
-## Overview
+Each token is one of: `component:1.2.3` (exact), `component:minor` (latest patch on current minor), `component:latest` (latest stable), `component:lts` (latest LTS), or bare `component` (latest compatible with everything else).
 
-Upgrade one or more components in the current repository to a requested version, verify the project still builds and tests stay green, and leave all changes uncommitted on the current branch.
+`component` can be a library, framework, language runtime, build tool, or path like `.github/workflows`.
 
-> **Model routing is mandatory.** Before Phase 1, this skill MUST classify the
-> requested upgrade batch per `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/model-routing.md` and
-> follow the routing rules. See "Phase 0 — Classify & Route" below.
+All changes are left **uncommitted** on the current branch.
 
-## Phase 0 — Classify & Route (mandatory, runs before Phase 1)
+---
 
-Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/model-routing.md` and classify the upgrade
-batch into exactly one of: `SIMPLE`, `MODERATE`, `SIGNIFICANT`, `HIGH-RISK`.
+## Phase 1 — Compatibility Planning (no files changed)
 
-Default classification heuristics for `upgrade:`:
+1. **Inventory** — Detect all components and their current versions from build files, runtime version files, and CI YAML. Use `references/upgrade/ecosystems.md`.
 
-| Upgrade type                                                                   | → Class            |
-|--------------------------------------------------------------------------------|--------------------|
-| Patch-only bumps (e.g. `springboot:minor`, `lib:1.2.3` → `1.2.4`)              | `MODERATE`         |
-| `latest`/`lts`/bare-token resolutions that stay within the current major       | `MODERATE`         |
-| Any **major** version bump (Spring Boot 2→3, React 17→18, Java 11→21, Gradle 8→9, Node 18→20→22) | `SIGNIFICANT` |
-| Major bumps to runtimes/frameworks that touch auth/security/serialization (e.g. Spring Security major, Hibernate major, Jackson major) | `HIGH-RISK` |
-| `.github/workflows` action upgrades (no code execution risk)                   | `MODERATE`         |
-| Multi-component batches that include any item from the SIGNIFICANT/HIGH-RISK rows above | inherit the highest class |
+2. **Resolve requested targets** — Apply the `Version Resolution` section below to each requested token.
 
-**When in doubt, escalate one level.**
+3. **Delegate planning in parallel** — Spawn one planner task per requested component. Use a single agent message for the whole batch.
 
-Build the `model_routing` block (format in `_shared/model-routing.md` §4) and
-pass it to **every** sub-agent invocation (`upgrade-planner`,
-`upgrade-executor`, `test-baseliner`).
+   Use this pattern for each component:
 
-### Routing consequences
-
-- **SIMPLE / MODERATE** — proceed with the existing two-phase flow below
-  (Phase 1 planning → Phase 2 execution). No mandatory Opus steps.
-- **SIGNIFICANT / HIGH-RISK** —
-  - Invoke `upgrade-planner` sub-agents with `model: claude-opus-4.8` (or the
-    highest available per `_shared/model-routing.md` §2). Planning is done by
-    Opus.
-  - Phase 2 execution applies the change with the current model or Sonnet
-    (`upgrade-executor`).
-  - **NEW Phase 2.5 — Opus Code Review (gate before tests):** after the
-    executor has applied changes but **before** `test-baseliner` `verify` runs,
-    delegate a `code-review` sub-agent pinned to Opus with the §6 checklist
-    from the shared doc. Address every BLOCKER and document every CONCERN.
-  - Only after the review passes does the executor (or the orchestrator) run
-    the test suite. Any review fixes are applied by the current model or
-    Sonnet, then tests are re-run.
-  - To gate tests, the orchestrator either (a) invokes the executor with
-    `gate_tests_on_review: true` so it stops after the build, or (b) splits
-    execution into two calls: apply-only first, review, then a second
-    "verify-resume" call.
-
-## Input format
-
-```
-upgrade: <token> [<token> ...]
-```
-
-Each token is one of:
-
-| Token form | Meaning |
-|---|---|
-| `component:1.2.3` | Upgrade to exactly this version |
-| `component:minor` | Latest patch release within the current major.minor line |
-| `component:latest` | Absolute latest stable release |
-| `component:lts` | Latest Long-Term Support release |
-| `component` (no colon) | **Latest version compatible with everything else in the repo** |
-
-`component` can be a library name, framework name, language runtime, build tool, or a file-system path (e.g. `.github/workflows`).
-
-## Workflow
-
-The workflow has two phases: **Compatibility planning** (no files are changed) followed by **Execution** (changes are applied one component at a time).
-
-### Phase 1 — Compatibility planning (parallel, via `upgrade-planner` sub-agent)
-
-1. **Inventory** — Detect all components and their current versions from build files, runtime version files, and CI YAML. See `references/ecosystems.md`. Produce a `repo_inventory` map (component → version).
-
-2. **Spawn `upgrade-planner` sub-agents in parallel** — one per requested component.
-   For each, build a plan request handoff (see `upgrade-planner/references/handoff.md`) including the full `repo_inventory`, the `other_upgrades` list, and the `model_routing` block from Phase 0. Use `/fleet` for parallel execution.
-   For SIGNIFICANT/HIGH-RISK batches, invoke each planner with `model: claude-opus-4.8` (or highest available per `_shared/model-routing.md` §2).
-
-3. **Collect results**:
-   - `READY` plans → proceed to Phase 2.
-   - `NOT_FOUND` → warn the user, mark the component as skipped.
-   - `CONFLICT` → surface the conflict and `alternatives` to the user via `ask_user` with ranked choices. Honor the user's choice (lower version / upgrade blocker / skip). Update the plan record accordingly.
-
-4. **Confirm plan** — If any version was auto-adjusted or companion upgrades were added, print the full resolved plan and ask the user to confirm before proceeding.
-
-### Conflict resolution options
-
-When a `CONFLICT` is returned, the `upgrade-planner` sub-agent provides ranked alternatives. Always present them to the user as-is — least-invasive first:
-
-> **Option A** — Lower to the highest compatible version (e.g. "Use Gradle 8.13, compatible with Java 11")
-> **Option B** — Upgrade the blocking dependency too (e.g. "Upgrade Java to 17 first, then Gradle 9 works")
-> **Option C** — Skip this component entirely
-
-### Phase 2 — Execution (sequential, via `upgrade-executor` sub-agent)
-
-#### Phase 2 pre-steps (run once before any component is executed)
-
-1. **Create upgrade branch**
-   - Run `git status --porcelain`. If non-empty:
-     - Show the user what is dirty.
-     - Ask:
-       ```
-       ask_user(
-         question: "Uncommitted changes detected. How would you like to proceed?",
-         choices: [
-           "Stash changes and create branch (Recommended)",
-           "Proceed anyway — pre-existing changes will appear in the diff and review outputs",
-           "Cancel"
-         ]
-       )
-       ```
-     - **Stash**: `git stash push -m "pre-upgrade stash"`, then continue. **Cancel**: stop.
-   - Generate the branch name. The prefix is selected per
-     `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/branch-naming.md`
-     (env var → git config → branch sniff → fallback). The workflow fallback
-     for `upgrade:` is `chore/`. The slug portion is:
-     - Single component: `upgrade-<component>-to-<version>` (e.g. `upgrade-springboot-to-3.3.11`)
-     - Multiple components: `upgrade-<first>-and-<N>-more` (e.g. `upgrade-springboot-and-2-more`)
-     Combined: `<prefix>/<slug>` (e.g. `ivgu/upgrade-springboot-to-3.3.11` if
-     `GIT_USER_INITIALS=ivgu`, or `chore/upgrade-springboot-to-3.3.11` on fallback).
-   - Check HEAD context: if HEAD is NOT on the default branch and has ahead commits (`git log origin/HEAD..HEAD --oneline 2>/dev/null` is non-empty), ask:
-     ```
-     ask_user(
-       question: "You are on a non-default branch with local commits. Where should the upgrade branch start?",
-       choices: [
-         "Branch from current position (Recommended)",
-         "Branch from default branch",
-         "Cancel"
-       ]
-     )
-     ```
-   - Run `git checkout -b <branch-name>`. If it already exists, append the first 7 chars of HEAD SHA: `<branch-name>-<short-sha>`. Announce the branch name.
-
-2. **Baseline** — Invoke `test-baseliner` sub-agent in `capture` mode (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/test-baseliner/references/handoff.md`). Pass the returned result to all `upgrade-executor` invocations. If `status: RUN_FAILED` or `COMMAND_NOT_FOUND`, warn the user and ask whether to proceed without a test safety net.
-
-#### Per-component loop (for each component, in order)
-
-3. **Execute sequentially** — For each component with a `READY` plan (in the order requested), invoke the `upgrade-executor` sub-agent. Pass the upgrade plan + baseline results + the `model_routing` block. See `upgrade-executor/references/handoff.md` for the handoff format.
-   - For **SIGNIFICANT / HIGH-RISK** batches: pass `gate_tests_on_review: true` so the executor stops after applying changes and the build step. The orchestrator then performs Phase 2.5 (Opus code review) before instructing the executor to proceed with `test-baseliner verify`.
-
-4. **Phase 2.5 — Opus Code Review** *(SIGNIFICANT / HIGH-RISK only — gate before tests)*
-   - Build the diff/summary of every file changed by the executor.
-   - Invoke a `code-review` sub-agent pinned to Opus (`task` with
-     `agent_type: "dev-workflows:code-review"`, `model: "claude-opus-4.8"` or highest
-     available, `mode: "sync"`). Embed the §6 checklist from
-     `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/model-routing.md` in the prompt and require
-     `OK | CONCERN | BLOCKER` per item.
-   - **Invoke `review-fixer`** to apply BLOCKER+MAJOR findings:
-     ```
-     task(
-       agent_type: "dev-workflows:review-fixer",
-       mode:       "sync",
-       description:"Apply review fixes for upgrade",
-       prompt:     "<upgrade summary> + <full review output> + project root: <absolute path>"
-     )
-     ```
-     Inspect the Fix Report's `Stop condition flag`:
-     - `CLEAR` → proceed to step 5 (verify tests).
-     - `NEEDS HUMAN` → surface deferred BLOCKERs to the user via `ask_user`. Do not
-       proceed to tests until resolved. Run one re-review cycle; if still BLOCK, stop.
-   - Document the disposition of every CONCERN.
-   - Only then proceed to step 5.
-
-5. **Verify tests** — Re-invoke `upgrade-executor` with `phase: verify-resume`
-   AND the same `baseline` block (including `baseline.passing_tests`) captured
-   in step 2, plus the original upgrade plan re-supplied verbatim — the
-   sub-agent retains nothing across the AWAITING_REVIEW boundary and needs
-   the plan for any test-regression auto-fixes. The executor will skip
-   apply/build and resume at the Verify step. Apply regression fixes per the
-   existing rules below; re-run tests if needed.
-
-6. **Collect results** — Accumulate the summary rows returned by each executor sub-agent and print the final table (see "Output" below).
-
-## Version resolution
-
-### bare token (no specifier) — "latest compatible"
-
-1. Fetch all stable versions from the registry.
-2. Filter to versions compatible with every other component in the repo (both those being upgraded and those staying at their current version). See `references/compatibility.md`.
-3. Select the highest version that passes all compatibility constraints.
-4. If no version passes, report the conflict and follow "Conflict resolution options".
-
-### `minor` (stay on current major.minor, get latest patch)
-
-1. Read the current version from the build file.
-2. Extract `MAJOR.MINOR`.
-3. Query the package registry for all versions matching `MAJOR.MINOR.*`.
-4. Select the highest stable (non-pre-release) patch version.
-
-### `latest`
-
-Fetch the highest stable release from the registry, then run a compatibility check (Phase 1, step 3) against the rest of the repo. If it is incompatible, treat it the same as a conflict: offer alternatives rather than blindly applying an incompatible version.
-
-### `lts`
-
-Consult the official LTS source for the technology. Use `web_fetch` on:
-
-| Technology | LTS source URL |
-|---|---|
-| Java (JDK) | `https://api.adoptium.net/v3/info/available_releases` — field `most_recent_lts` |
-| Node.js | `https://nodejs.org/dist/index.json` — latest entry with `lts != false` |
-| Python | `https://endoflife.date/api/python.json` — latest entry where `eol` is in the future and it is an active LTS line |
-| Ruby | `https://endoflife.date/api/ruby.json` |
-| Go | `https://endoflife.date/api/go.json` |
-| .NET | `https://endoflife.date/api/dotnet.json` |
-| Any other | `https://endoflife.date/api/<product>.json` (substitute the product slug) |
-
-If the lookup fails, ask the user for the target LTS version.
-
-### `exact version` (e.g. `1.2.3`)
-
-Use the version as-is. Verify it exists in the registry, then run a compatibility check against the rest of the repo before applying. If incompatible, report the conflict and present alternatives — **never silently downgrade or ignore an explicit version request**; always surface the incompatibility to the user.
-
-## Handling test failures
-
-If previously-green tests fail after an upgrade:
-
-1. **Inspect** the failures — determine whether they are caused by a breaking API change in the upgraded component (e.g. a renamed class, changed method signature, removed annotation).
-2. **Auto-fix test code** if the fix is straightforward (rename import, update assertion syntax, adjust configuration). Explain every test change in the summary.
-3. If the failures cannot be auto-fixed, present them clearly and ask the user:
-   > "These tests were passing before the upgrade. Would you like me to:
-   > (1) Keep the upgrade and leave the failing tests for you to fix,
-   > (2) Revert this upgrade and skip it,
-   > (3) Investigate further before deciding?"
-4. Honor the user's choice. If they choose (1), note the failing tests prominently in the final summary.
-
-## Handling build failures
-
-If the build fails after applying the upgrade:
-
-1. Read the full error output.
-2. Attempt an automatic fix (wrong API, missing plugin version, incompatible config).
-3. If unfixable, revert the change for this component, warn the user, and continue with the next component.
-
-## Special case: `.github/workflows` (GitHub Actions)
-
-When the component is a directory path matching `**/.github/workflows` or similar CI/CD config paths:
-
-1. Scan every `.yml`/`.yaml` file in the directory for `uses: owner/action@ref` declarations.
-2. For each action, fetch the latest release tag from the GitHub API:
    ```
-   GET https://api.github.com/repos/<owner>/<action>/releases/latest
+   task(
+     agent_type: "dev-workflows:upgrade-planner",
+     model: `<detection_model — §2.1 detection chain>`,
+     description: "Plan component upgrade",
+     prompt: "## Upgrade Plan Request
+     repo: [absolute repo path]
+     component: [component name]
+     target: [exact | minor | latest | lts | bare]
+     other_upgrades:
+       - name: [other requested component]
+         target: [its target token]
+     repo_inventory:
+       [component]: [current version]
+     model_routing:
+       classification: [SIMPLE | MODERATE | SIGNIFICANT | HIGH-RISK]
+       reason: <one-line>
+       current_model: <the model this orchestrator is running under>
+       detection_model: <§2.1 detection chain: claude-sonnet-4.6, fallback claude-sonnet-4.5/gpt-5.4>   # upgrade-planner, test-baseliner; upgrade-executor (SIMPLE/MODERATE); review-fixer
+       planning_model: <§2 Opus chain>   # risk-planner (SIGNIFICANT/HIGH-RISK; frontmatter-pinned, recorded, no override); upgrade-executor escalates here only if HIGH-RISK
+       review_model:  <§2 Opus chain>    # code-review (frontmatter-pinned; recorded, no override)
+       opus_available: <true if a §2 Opus model resolved, else false>
+       gate_tests_on_review: <true for SIGNIFICANT/HIGH-RISK, false otherwise>
+       notes: <any §2 / §2.1 fallback or degradation>"
+   )
    ```
-   Use `gh api repos/<owner>/<action>/releases/latest --jq .tag_name` if `gh` CLI is available.
-3. Replace the `@ref` with the latest tag (e.g. `actions/checkout@v3` becomes `actions/checkout@v4`).
-4. Also update any pinned SHA references to match the new tag's HEAD commit.
-5. Validate the updated YAML is syntactically correct.
-6. There is no test suite to run for CI/CD files — instead, report a summary of every action upgraded and flag any action where the major version changed (potential breaking change).
+
+4. **Collect planner results**
+   - `READY` → candidate for execution
+   - `NOT_FOUND` → warn and skip
+   - `CONFLICT` → surface `conflict_details` and ranked `alternatives`; do not proceed until the conflict is resolved or the component is skipped
+
+5. **Classify each READY component** — Load and follow the model-routing policy at `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/model-routing.md`, then record: the actual resolved change, related upgrades, and planner findings. Print one classification line per component. When in doubt, escalate to `SIGNIFICANT`.
+
+6. **Risk plan for SIGNIFICANT / HIGH-RISK components** — For every component classified `SIGNIFICANT` or `HIGH-RISK`, invoke `risk-planner` before execution (frontmatter-pinned to Opus; recorded as `planning_model` above, no `model:` override needed):
+
+   ```
+   task(
+     agent_type: "dev-workflows:risk-planner",
+     description: "Plan risky upgrade",
+     prompt: "Task description: Upgrade [component] from [current] to [target] in this repo.
+     Classification: [SIGNIFICANT | HIGH-RISK] — reason: [routing trigger]
+     Upgrade plan: [paste the READY planner handoff]
+     Current state: branch = [git branch], uncommitted = [git status --short summary]
+
+     Before writing the plan, grep the repo for import sites and usage patterns of this component to understand blast radius, migration order, test coverage, and rollback."
+   )
+   ```
+
+   If the planner returns `### Re-classification`, surface it and let the user accept the down-classification, override it, or cancel the component.
+
+7. **Confirm the full plan** — Present the resolved component list, classifications, related upgrades, and any Opus plans. Do not touch files until approved.
+
+---
+
+## Phase 2 — Execution (after user confirms)
+
+### Phase 2 prep (once)
+
+1. **Create feature branch**
+   - Run `git status --porcelain`. If dirty, show the diff summary and ask whether to stash, proceed anyway, or cancel.
+   - Generate `chore/upgrade-<component>-to-<version>` for a single component, or `chore/upgrade-<first>-and-<N>-more` for a batch. Match the repo's existing prefix convention when obvious.
+   - If HEAD is on a non-default branch with ahead commits, ask whether to branch from current position, branch from default, or cancel.
+   - Run `git checkout -b <branch-name>`. If it exists, append `-<7-char-sha>`.
+
+2. **Capture baseline tests** — Invoke the existing test baseline agent once and reuse the result for the entire batch:
+
+   ```
+   task(
+     agent_type: "dev-workflows:test-baseliner",
+     model: `<detection_model — §2.1 detection chain>`,
+     description: "Capture test baseline",
+     prompt: "Mode: capture
+     Project root: [absolute repo path]"
+   )
+   ```
+
+   Store the returned baseline; do not re-run baseline capture per component.
+
+### Per-component loop (sequential, in requested order)
+
+3. **Delegate execution** — For each `READY` plan, invoke the executor agent with the planner handoff and the captured baseline.
+
+   ```
+   task(
+     agent_type: "dev-workflows:upgrade-executor",
+     model: `<detection_model — §2.1 detection chain — for SIMPLE/MODERATE; planning_model — §2 Opus chain — only if HIGH-RISK>`,
+     description: "Execute component upgrade",
+     prompt: "## Upgrade Execution Request
+     repo: [absolute repo path]
+     phase: full
+     baseline:
+       passing_count: [captured count]
+       passing_tests:
+         - [captured test ids]
+     model_routing:
+       classification: [component class]
+       reason: <one-line>
+       current_model: <the model this orchestrator is running under>
+       detection_model: <§2.1 detection chain: claude-sonnet-4.6, fallback claude-sonnet-4.5/gpt-5.4>   # upgrade-planner, test-baseliner; upgrade-executor (SIMPLE/MODERATE); review-fixer
+       planning_model: <§2 Opus chain>   # risk-planner (SIGNIFICANT/HIGH-RISK; frontmatter-pinned, recorded, no override); upgrade-executor escalates here only if HIGH-RISK
+       review_model:  <§2 Opus chain>    # code-review (frontmatter-pinned; recorded, no override)
+       opus_available: <true if a §2 Opus model resolved, else false>
+       gate_tests_on_review: [true for SIGNIFICANT / HIGH-RISK, false otherwise]
+       notes: <any §2 / §2.1 fallback or degradation>
+
+     [paste the full READY upgrade plan verbatim]"
+   )
+   ```
+
+4. **Review gate for SIGNIFICANT / HIGH-RISK** — If the executor returns `status: AWAITING_REVIEW`, run the Opus code-review gate before any test verification:
+   - Capture the diff with `git add -N . && git diff`
+   - Invoke `code-review` using the approved risk plan, the executor output, and the diff (frontmatter-pinned to Opus; recorded as `review_model` above, no `model:` override needed)
+   - If review returns `BLOCK` or `PASS WITH RECOMMENDATIONS`, invoke `review-fixer` with model: `<detection_model — §2.1 detection chain>` for `BLOCKER` and `MAJOR` findings, then re-run the Opus review once
+   - If the second verdict is still `BLOCK`, stop and escalate; do not continue to tests
+
+5. **Resume verify step after review** — Re-invoke `upgrade-executor` with `phase: verify-resume`, the original `READY` plan, and the same baseline block captured in Phase 2 prep.
+
+6. **Collect results** — Accumulate one summary row per component. Preserve the classification, review verdict, related upgrades applied, and any regression notes.
+
+7. **Post-batch maintenance** — After all components finish, invoke `impl-maintenance` with a compact session handoff summarising what was upgraded, key failures or workarounds, and the overall result.
+
+**Context hygiene.** This was a large run — consider **`/compact`** to free context before your next task (per `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/session-hygiene.md` §3 — non-pipeline, so `/compact` only; guidance only).
+
+8. **Persist plugin feedback (automatic)** — After `impl-maintenance` returns, project its plugin-facing slice into the specs repo by citing `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/feedback-emission.md` and calling its `emit-auto` entry point (§6). Pass the Lessons Learned report, `command: upgrade:`, the run's `jira_key` (or `null`) and `source`, and `plugin_version` (read from `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/.plugin/plugin.json`). `emit-auto` renders only the report's **Command workflow improvements**, **New agents / skills**, and plugin **Reference docs** sections plus the **Key observations** that triggered them (§4 plugin-facing predicate) — never target-project `copilot-instructions.md`/hook advice — as `origin: auto` entries, dedupes by stable `id` (§3), resolves the target via the §2 specs-first ladder, and writes silently. List the persisted path (or "no plugin-facing signal — nothing persisted") after the lessons-learned report. ADDITIVE — this step NEVER fails the run, NEVER commits, and NEVER writes into the code repo or the current working directory.
+
+---
+
+## Version Resolution
+
+| Token | Resolution |
+|---|---|
+| `component:1.2.3` | Use exact version; verify it exists; run compatibility check; surface conflicts (never silently downgrade) |
+| `component:minor` | Latest stable patch within current `MAJOR.MINOR.*` |
+| `component:latest` | Highest stable release; run compatibility check |
+| `component:lts` | Consult official LTS source (see `lts-sources.md`); if lookup fails, ask the user |
+| bare `component` | Highest version compatible with all other repo components; report conflict if none found |
+
+---
 
 ## Output
-
-After processing all components, print a summary table:
 
 ```
 ## Upgrade Summary
 
-| Component       | Before  | After   | Status  | Notes                        |
-|-----------------|---------|---------|---------|------------------------------|
-| springboot      | 3.1.4   | 3.3.11  | OK      | Also upgraded hibernate 6.4  |
-| java            | 17      | 21      | OK      | Updated 2 test files         |
-| redis           | -       | -       | SKIPPED | Not found in project         |
-| gradle          | 8.4     | 8.13    | OK      |                              |
+| Component  | Before | After  | Class       | Review | Status  | Notes                       |
+|------------|--------|--------|-------------|--------|---------|-----------------------------|
+| springboot | 3.1.4  | 3.3.11 | HIGH-RISK   | PASS   | OK      | Also upgraded hibernate 6.4 |
+| java       | 17     | 21     | SIGNIFICANT | PASS W/RECS | OK | Updated 2 test files        |
+| commons-text | 1.10 | 1.11   | MODERATE    | N/A    | OK      |                             |
+| redis      | -      | -      | -           | -      | SKIPPED | Not found in project        |
 
 Tests: 142 passed, 0 regressions (baseline: 142 passing)
-
-### Model Routing
-- Classification: <class>
-- Reason: <trigger>
-- Planning model: <model>
-- Implementation model: <model>
-- Review model: <model | "n/a — SIMPLE/MODERATE">
-- Opus checklist verdicts (SIGNIFICANT/HIGH-RISK only): Correctness / Security / Architecture / Edge cases / Migration / Dependencies / Tests / Rollback
 ```
 
-All changes are left **uncommitted** on the upgrade branch.
+Include the `impl-maintenance` lessons-learned report after the summary table.
 
-## Post-batch Maintenance
+---
 
-After printing the summary table, build a compact session handoff and invoke
-`impl-maintenance`:
+## Invariants (always enforced)
 
-```markdown
-## Implementation Summary
-repo: <absolute path to repo root>
-change_type: refactor
-description: >
-  Upgraded <component list> from <versions> to <versions>.
-  <1–2 sentences on what changed and any notable compatibility work done.>
-files_changed:
-  - path: <relative path>
-    summary: <what changed>
-kb_context: >
-  <Non-obvious compatibility gotchas, workarounds used, or ecosystem-specific
-   findings from this upgrade. Leave blank if nothing notable.>
-```
-
-```
-task(
-  agent_type: "dev-workflows:impl-maintenance",
-  mode:       "sync",
-  description:"Post-upgrade maintenance",
-  prompt:     "<handoff document above>"
-)
-```
-
-Include the Maintenance Report in the final output under `### Knowledge Base`,
-`### Instructions`, and `### Documentation`.
-
-## Resources
-
-- `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/model-routing.md` - Mandatory classification rubric, model fallback chain, and the Opus code-review checklist.
-- `references/ecosystems.md` - Detection patterns, update commands, and registry query patterns for every supported ecosystem.
-- `references/lts-sources.md` - LTS lookup reference for common runtimes and frameworks.
-- `references/compatibility.md` - Known compatibility constraints between common components (Java, Gradle, Maven, Spring Boot, Node, etc.) and how to look up compatibility dynamically.
-- `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade-planner/references/handoff.md` - Input/output format for the `upgrade-planner` sub-agent.
-- `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/upgrade-executor/references/handoff.md` - Input/output format for the `upgrade-executor` sub-agent.
-- `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/test-baseliner/references/handoff.md` - Input/output format for the `test-baseliner` sub-agent.
+- ALWAYS `emit-block` (per `references/feedback-emission.md`) before escalating a halt caused by a **plugin / skill / command / reference gap** (a capability the run needed but the plugin lacked) — so a run abandoned at the block still records it. NEVER for a work-quality review BLOCK or an environment / user halt (repo-missing, dirty-tree, jira-not-found, cancellation)
+- NEVER skip per-component classification after planning
+- NEVER use Opus for a `MODERATE` component unless the user explicitly asks for it
+- NEVER run tests for a `SIGNIFICANT` / `HIGH-RISK` component before the Opus review returns a non-BLOCK verdict
+- NEVER modify files during Phase 1
+- NEVER touch files before the upgrade branch exists
+- ALWAYS capture the baseline once before executing any component
+- ALWAYS pass the same baseline block to `upgrade-executor` on `phase: verify-resume`
+- ALWAYS include classification in the final summary table
+- After the run, suggest **`/compact`** (a big non-pipeline run) per `references/session-hygiene.md` §3 — compact-only, no clear/resume pointer; guidance only, never auto-run.

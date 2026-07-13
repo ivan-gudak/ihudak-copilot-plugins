@@ -3,7 +3,7 @@
 Shared input-resolution mechanics for the Jira-driven commands `implement:`,
 `document:`, `epics:`, `specify:`, and `release-notes:`. The command's Phase 0 **cites this
 file and executes these steps inline** — the orchestrator owns every prompt. The
-commands parse `$ARGUMENTS` identically and consume the normalized output
+commands parse the trigger argument (the text following the command trigger) identically and consume the normalized output
 contract (§ Output contract); each then layers its own downstream work. `epics:`,
 `specify:`, and `release-notes:` are **jira-driven only**: they consume
 `{mode, source, jira_key, jira_export_root}`, ignore `specs` / `direct_prompt` /
@@ -12,7 +12,7 @@ stop with a clear error).
 
 ## Input grammar
 
-`$ARGUMENTS` is a whitespace-separated token list. Classify each token:
+The trigger argument (the text following the command trigger) is a whitespace-separated token list. Classify each token:
 
 - **JiraID** — matches `^[A-Z][A-Z0-9]+-[0-9]+`.
 - **Path** — a `@path` token, or a bare path that exists on disk (a directory; or,

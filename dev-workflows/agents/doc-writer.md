@@ -13,7 +13,7 @@ The orchestrator writes a single **handoff file** (a temp file) and passes its a
 - `jira_reader_handoff`, `diff_summaries`
 - `write_targets` — the confirmed write-target list (Phase 5.5)
 - `doc_planner_checklist` — the Phase 5.7 checklist + gap dispositions (TODO markers)
-- `repo_authoring_guidance` — the repo's own authoring / structural rules the planner extracted from its guidance files (`CONTRIBUTING.md`, `CLAUDE.md`, …); a list of `{rule, source}`. Augments — never overrides — the built-in references and `dt-style-guide`. Empty list ⇒ none.
+- `repo_authoring_guidance` — the repo's own authoring / structural rules the planner extracted from its guidance files (`CONTRIBUTING.md`, `copilot-instructions.md`, …); a list of `{rule, source}`. Augments — never overrides — the built-in references and `dt-style-guide`. Empty list ⇒ none.
 - `discrepancy_decisions[]` — Phase 5.8 `{number, claim, jira_phrasing, spec_phrasing, source_phrasing, source_location, decision, rationale}`
 - `write_strategies[]` — Phase 5.9 `{target_path, strategy ∈ {conditional, override-copy, plain}, target_space, rationale}`
 - `cdn_handoff_decision` ∈ {upload-now, defer}, `cdn_urls{}`, `screenshot_staging_dir`, `screenshots[]`

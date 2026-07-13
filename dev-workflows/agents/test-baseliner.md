@@ -1,91 +1,122 @@
 ---
 name: test-baseliner
-description: "Sub-agent for capturing and comparing test suite results. Shared utility used by vuln-fixer and upgrade-executor. Operates in two modes: \"capture\" (run the test suite, record every passing test, return a baseline) and \"verify\" (run the test suite again after a change, diff against a provided baseline, return a structured regression report). Handles test command auto-detection for all supported ecosystems. Invoked by other sub-agents — NOT triggered by direct user prompts. Has no side effects on source or build files."
-tools: [view, grep, glob, bash]
+description: "Run the full test suite and return structured results for regression comparison. Operates in two modes — \"capture\" (run tests, record baseline) and \"verify\" (run tests again, diff against a provided baseline, return a structured regression report). Model tier assigned by the caller per the model-routing policy (no fixed pin — does not require Opus)."
+tools: [bash, view, glob]
 ---
 
-# test-baseliner — Test Capture & Comparison Sub-agent
+Run the project's full test suite and return a structured result for regression comparison.
 
-Read `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/test-baseliner/references/handoff.md` for the exact input/output document format.
+Operates in two modes. The caller must specify which mode to use.
 
-## Modes
+---
 
-### `capture` — record baseline
+## Mode: capture
 
-1. **Detect test command** — if `command_hint` is provided, use it. Otherwise auto-detect
-   from project files (see "Command detection" below).
-   If no command can be determined: set `status: COMMAND_NOT_FOUND` and return.
+Run the test suite and return a baseline snapshot. Use this **before** making changes.
 
-2. **Run the test suite** — execute the detected command from `repo` root.
-   Capture stdout + stderr. On total failure (non-zero exit, no results parsed):
-   set `status: RUN_FAILED`, include the error tail in `error`, and return.
+### Steps
 
-3. **Parse results** — extract the list of passing test identifiers and the total count.
-   Use whatever format the test runner emits (see "Output parsing" below).
+1. **Detect framework** — Search the working directory for build/config files in this order:
+   - `pom.xml` → Maven, command: `mvn test -q`
+   - `build.gradle` or `build.gradle.kts` → Gradle, command: `./gradlew test` (fall back to `gradle test` if no wrapper)
+   - `package.json` → read the `scripts.test` field; if absent, use `npm test`. Check for a `workspaces` field — if present, use `npm test --workspaces --if-present`.
+   - `pyproject.toml`, `setup.py`, or `pytest.ini` → pytest, command: `pytest -v`
+   - `Makefile` containing a `test` target → `make test`
+   - If no framework found: return the structure below with Framework = "not detected", all counts = 0, and a note explaining no runner was found. Do not fail.
 
-4. **Return** — produce a `capture` result record (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/test-baseliner/references/handoff.md`).
+2. **Run** — Execute the detected command. Allow up to 10 minutes. Capture stdout and stderr combined.
 
-### `verify` — compare after change
+3. **Parse** — Extract from the output:
 
-1. **Run the test suite** — same detection and execution as capture mode.
+   | Framework | Passing count | Failing count | Skipped count |
+   |-----------|--------------|---------------|---------------|
+   | Maven | `Tests run: X` minus failures+errors per module, summed | `Failures: Y, Errors: Z` summed | `Skipped: N` summed |
+   | Gradle | `X tests completed` minus failed | `, Y failed` | `, Z skipped` |
+   | pytest | `X passed` | `Y failed` or `Y error` | `N skipped` |
+   | Jest/npm | `X passed` | `Y failed` | `Y skipped` |
+   | Make | best-effort: look for any `X passed` / `X failed` / `X pass` / `X fail` patterns. If no pattern is found, set counts to 0 and include a note. | same | same |
 
-2. **Parse results** — extract the current passing/failing test list.
+   Also collect the names/identifiers of every passing test and every failing test from the verbose output.
 
-3. **Diff against baseline**:
-   - **Regressions** = tests in `baseline.passing_tests` that are now failing.
-   - **New passes** = tests now passing that were not in the baseline (informational only).
+4. **Return this exact structure and nothing else:**
 
-4. **Determine status**:
-   - Zero regressions → `status: OK`
-   - One or more regressions → `status: REGRESSIONS`
+```markdown
+## Test Baseline
+- **Mode**: capture
+- **Framework**: [name or "not detected"]
+- **Command**: `[command used]`
+- **Total**: [n] | **Passing**: [n] | **Failing**: [n] | **Skipped**: [n]
 
-5. **Return** — produce a `verify` result record (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/test-baseliner/references/handoff.md`).
+### Pre-existing failures
+[one test identifier per line — or "none"]
 
-## Command detection
+### Passing tests
+[one test identifier per line]
+```
 
-Inspect the repo root for these files in order; use the first match:
+---
 
-| File found | Command |
-|---|---|
-| `pom.xml` | `mvn test -q` |
-| `build.gradle` or `build.gradle.kts` | `./gradlew test` |
-| `package.json` (has `"test"` script) | `npm test` |
-| `package.json` (no test script) | `COMMAND_NOT_FOUND` |
-| `requirements.txt` / `pyproject.toml` / `setup.py` | `pytest -q` |
-| `go.mod` | `go test ./...` |
-| `Cargo.toml` | `cargo test` |
-| `Gemfile` | `bundle exec rspec` or `bundle exec rake test` |
-| `.github/workflows/*.yml` | no runnable tests — `status: NO_TESTS` |
+## Mode: verify
 
-If multiple build files are present, prefer the one at the repo root.
-If `command_hint` is provided, always use it regardless of detection.
+Re-run the test suite and diff against a previously captured baseline. Use this **after** making changes to detect regressions.
 
-## Output parsing
+### Inputs
 
-Extract test identifiers in a format specific to the runner:
-- **JUnit (Maven/Gradle)**: `ClassName#methodName` from Surefire/test XML reports in `target/surefire-reports/` or `build/test-results/`.
-- **pytest**: `path/to/test_file.py::TestClass::test_method` from `-v` output.
-- **Go**: `TestFunctionName` from `go test -v` output.
-- **npm/Jest**: `describe > test name` from JSON reporter (`--json` flag).
-- **Other**: fallback to counting pass/fail lines from stdout; set `passing_tests: []` (count only).
+The caller must provide:
+- The full baseline block from a prior `capture` run (the `## Test Baseline` markdown block)
+- The project root path
 
-When XML/JSON reports are available, prefer them over stdout parsing for accuracy.
+### Steps
 
-## Invariants
+1. **Detect framework** — Same detection logic as capture mode.
 
-- Never modify any source, test, or build file.
-- Always return a structured result record — never exit silently.
-- `passing_tests` list may be empty `[]` for ecosystems where only a count is available; `passing_count` is always populated when tests ran.
+2. **Sanity check** — If the detected framework or command differs from the baseline, return:
+   ```
+   Comparison status: invalid
+   Reason: framework changed from [baseline framework] to [current framework]. Manual comparison required.
+   ```
+   Do not run the test suite.
 
-## Resources
+3. **Run** — Execute the detected command. Allow up to 10 minutes. Capture stdout and stderr combined. If the run aborts (non-zero exit, truncated output, or unrecognized runner output), set `Comparison status: best-effort` and note the issue.
 
-- `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/test-baseliner/references/handoff.md` — Complete input/output document format for both `capture` and `verify` modes.
+4. **Parse** — Same patterns as capture mode.
 
-## Model Routing
+5. **Diff against baseline** — Compare using the test identifiers from the baseline's `### Passing tests` list:
 
-If the caller (orchestrator or another sub-agent) passes a `model_routing`
-block (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/model-routing.md` §4), include it
-verbatim in the result record so the orchestrator's final report can quote it.
-This sub-agent's behaviour is otherwise unchanged by the routing block — it
-only ever runs the test command and reports results.
+   | Category | Definition |
+   |----------|-----------|
+   | **Regressions** | Was in baseline `### Passing tests` AND is now failing |
+   | **Missing from run** | Was in baseline `### Passing tests` AND is not present in the current run at all (treat as regression-severity — test may have been silently dropped or suite aborted early) |
+   | **Newly fixed** | Was in baseline `### Pre-existing failures` AND is now passing |
+   | **New failures** | Is failing now AND was not in baseline `### Pre-existing failures` AND was not in baseline `### Passing tests` (new test added and already failing) |
+
+6. **Return this exact structure and nothing else:**
+
+```markdown
+## Test Verify Report
+- **Mode**: verify
+- **Framework**: [name]
+- **Command**: `[command used]`
+- **Comparison status**: [exact | best-effort | invalid]
+- **Total**: [n] | **Passing**: [n] | **Failing**: [n] | **Skipped**: [n]
+- **Baseline passing**: [n from baseline] | **Regressions**: [n] | **Missing from run**: [n]
+
+### Regressions (previously passing, now failing)
+[one test identifier per line — or "none"]
+
+### Missing from run (previously passing, not present in current run)
+[one test identifier per line — or "none"]
+
+### Newly fixed (previously failing, now passing)
+[one test identifier per line — or "none"]
+
+### New failures (new tests that are already failing)
+[one test identifier per line — or "none"]
+
+### Notes
+[any parser confidence issues, aborted runs, or "none"]
+
+### Current passing tests
+[one test identifier per line — for chaining further verify calls against the same original baseline]
+```
 
