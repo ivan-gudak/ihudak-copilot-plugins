@@ -1,6 +1,9 @@
 # dev-workflows
 
-A GitHub Copilot plugin providing structured development workflow skills for implementing features, remediating vulnerabilities, and upgrading dependencies.
+A GitHub Copilot CLI plugin providing a **full product-development lifecycle** as
+structured workflow skills — from raw idea, through requirements and design, to
+implementation, documentation, and release. Plus vulnerability remediation,
+dependency upgrades, and guideline reviews.
 
 ## Installation
 
@@ -8,82 +11,153 @@ A GitHub Copilot plugin providing structured development workflow skills for imp
 copilot plugin install dev-workflows@ihudak-copilot-plugins
 ```
 
+## Triggers
+
+Skills activate on a **flat keyword trigger** — the plugin runs when your prompt
+*starts with* the keyword followed by a colon, e.g.:
+
+```
+implement: add rate limiting to the /login endpoint
+document: PRODUCT-14902
+vuln: CVE-2024-1234
+```
+
 ## Skills
 
-### Orchestrator skills (invoke via slash-command)
+### Product-development lifecycle
+
+The lifecycle skills chain from idea to release. Each writes a reviewable artifact
+and offers the next phase.
 
 | Trigger | Skill | Description |
 |---------|-------|-------------|
-| `/impl` | impl-dispatcher | Help / dispatcher for the impl family. Prints the command matrix and stops — does not run any workflow. Use `/impl:code` for the code-implementation workflow. |
-| `/impl:code` | impl | Implement a feature or fix from a spec. Creates a feature branch, captures a test baseline, runs risk-weighted planning (Opus critique for complex tasks), implements, runs Opus code-review (SIGNIFICANT/HIGH-RISK), writes tests for changed behaviour via `test-writer`, verifies no regressions, and runs post-impl maintenance. |
-| `/impl:docs` | impl-docs | Implement documentation-only changes (Markdown, READMEs, wikis, Obsidian vault, etc.). Lightweight: no branch by default, no tests, no code-review. Redirects to `/impl:code` if source code changes are detected. |
-| `/impl:jira:docs` / `/impl:jira:epics` / `/impl:jira` | impl-jira | Jira-driven documentation workflow. Reads Jira work-item exports from an Obsidian vault, resolves Bitbucket PR URLs as local-git identifiers (no HTTPS/API calls), runs parallel diff-summarizers (use case A — feature docs) or code-scanners (use case B — Epic writing), synthesises output with mandatory inline citations, gates on doc-reviewer, and runs impl-maintenance. |
-| `/fix-vuln` | fix-vuln | Remediate one or more CVEs. Researches each CVE via NVD, applies the minimal safe version bump, verifies tests, applies Opus code-review, runs post-batch maintenance. Each CVE gets its own branch and PR. |
-| `/upgrade` | upgrade | Upgrade one or more dependencies to a target version. Creates an upgrade branch, captures test baseline, plans compatibility per-component, upgrades and verifies in sequence, applies Opus code-review, runs post-batch maintenance. |
-| `/api-guideline-reviewer` | api-guideline-reviewer | Review OpenAPI specification files against Dynatrace REST API and IAM permission naming guidelines. Validates compliance with Dynatrace API standards and IAM scope naming. |
-| `/guideline-reviewer` | guideline-reviewer | Review code and UI for compliance with Dynatrace Experience Standards (GUIDElines). Checks component usage, accessibility/WCAG compliance, terminology, and settings implementations. |
+| `idea:` | idea | Capture a raw idea and shape it into a structured problem statement. Pre-VI, keyless. |
+| `create-vi:` | create-vi | Draft a Value Increment (VI) from an idea or problem statement. Reviewed by `vi-reviewer`. |
+| `create-ard:` | create-ard | Draft an Architecture Decision Record for a VI. Reviewed by `ard-reviewer`; resolves open decisions. |
+| `specify:` | specify | Write an engineering specification (Jira-driven). Reviewed by `spec-reviewer`. |
+| `design:` | design | Write an engineering design from a specification. Reviewed by `design-reviewer`. |
+| `epics:` | epics | Draft child Epic definitions for a VI (Jira-driven). Scans repos via `code-scanner`; reviewed by `epic-reviewer` (Opus). |
+| `implement:` | implement | Implement a feature or fix. Classifies complexity → risk-weighted plan (Opus critique for complex tasks) → branch → test baseline → implement → `test-writer` → Opus code-review (SIGNIFICANT/HIGH-RISK) → verify no regressions → post-impl maintenance. |
+| `document:` | document | Dual-mode documentation. **Doc-edit mode** for direct Markdown/wiki/vault edits; **Jira mode** reads Jira exports + merged PRs, runs parallel `diff-summarizer`s, plans via `doc-planner`/`doc-location-finder`, writes with mandatory citations, style-checks, and gates on `doc-reviewer`. |
+| `release-notes:` | release-notes | Generate release notes for a VI in dynatrace-docs block format. Output to markdown/stdout — **never** written into the docs repo (Jira automation owns that path). |
+| `ready:` | ready | Readiness gate: verify a VI/feature is ready to ship. Reviewed by `readiness-reviewer`. |
 
-> The legacy colon-prefix form (e.g. `impl:code: <description>`) is still accepted for
-> backward compatibility, but slash-commands are the preferred trigger.
+### Maintenance & review workflows
 
-### Sub-agents (dispatched by orchestrators via the `task` tool)
+| Trigger | Skill | Description |
+|---------|-------|-------------|
+| `vuln:` | vuln | Remediate one or more CVEs. Researches each via NVD (`vuln-research`), applies the minimal safe version bump (`vuln-fixer`), verifies tests, applies Opus code-review, runs post-batch maintenance. One branch + PR per CVE. |
+| `upgrade:` | upgrade | Upgrade dependencies to a target version. Branch → test baseline → per-component compatibility plan (`upgrade-planner`) → upgrade + verify in sequence (`upgrade-executor`) → Opus code-review → maintenance. |
+| `api-guideline-reviewer:` | api-guideline-reviewer | Review OpenAPI specs against Dynatrace REST API and IAM permission naming guidelines. Thin dispatcher → `api-guideline-reviewer` agent. |
+| `guideline-reviewer:` | guideline-reviewer | Review code/UI against Dynatrace Experience Standards (GUIDElines) — component usage, accessibility/WCAG, terminology. Thin dispatcher → `guideline-reviewer` agent. |
+| `docs-profile:` | docs-profile | Bootstrap or refresh a machine-readable `.dev-workflows/docs-profile.yml` for a docs repo (consumed by `document:` Jira mode). Writes as a reviewable PR. |
+
+### Utilities
+
+| Trigger | Skill | Description |
+|---------|-------|-------------|
+| `feedback:` | feedback | Capture structured feedback about a plugin run into the specs repo. |
+| `prompt:` | prompt | Improve or refine a prompt. |
+| `prompt-brainstorm:` | prompt-brainstorm | Collaboratively brainstorm and expand a prompt/idea. |
+| `prompt-grill-me:` | prompt-grill-me | Adversarially interrogate a prompt/plan to surface gaps. |
+
+## Sub-agents
 
 Each sub-agent lives in `agents/<name>.md` and is dispatched with
-`task(agent_type: "dev-workflows:<name>", ...)`. The agent runs in its own
-context window and inherits the orchestrator's model unless an explicit
-`model:` override is passed.
+`task(agent_type: "dev-workflows:<name>", ...)`. Agents run in their own context
+window and inherit the orchestrator's model unless an explicit `model:` override
+is passed. There are **30** sub-agents:
 
-| Agent | Role |
-|-------|------|
-| risk-planner | Risk-weighted planner for SIGNIFICANT/HIGH-RISK tasks. Returns a structured plan with explicit risks section. Pinned to Opus by the orchestrator. |
-| code-review | Post-implementation Opus review (SIGNIFICANT/HIGH-RISK gate). Returns per-item verdicts against the 8-dimension checklist in `_shared/model-routing.md`. |
-| test-baseliner | Captures test baseline before a change; compares after; returns regression report. Used by `/impl:code`, `upgrade-executor`, and `vuln-fixer`. |
-| test-writer | Writes or updates tests for newly added or changed code behaviour. Used by `/impl:code` (Phase 3.7). |
-| review-fixer | Receives Opus code-review output; applies BLOCKER and MAJOR locally-actionable findings in one cycle. |
-| impl-maintenance | Post-implementation maintenance: updates knowledge base, copilot-instructions, and project docs. |
-| upgrade-planner | Plans a single component upgrade: resolves target version, checks compatibility. |
-| upgrade-executor | Executes a single planned upgrade: applies change, builds, verifies tests, auto-fixes test breakage. |
-| vuln-research | Read-only CVE research: NVD lookup, library detection, minimum safe version resolution. |
-| vuln-fixer | Applies a CVE fix: captures baseline, bumps version, rebuilds, verifies tests, commits, opens PR. |
-| jira-reader | Read-only: parses `$VAULT_PATH/jira-products/<KEY>/` Jira exports. Used by `/impl:jira` (Phase 3). |
-| diff-summarizer | Use case A: resolves each PR against local git refs and produces prose diff summaries. Used by `/impl:jira:docs` (Phase 5, parallel). |
-| code-scanner | Use case B: scans the filesystem to classify each capability theme as present/partial/absent. Used by `/impl:jira:epics` (Phase 5, parallel). |
-| doc-reviewer | Comprehensive review of changed documentation: links, headings, wikilinks, style, completeness. Used by `/impl:docs` (Phase 3.5) and `/impl:jira` (Phase 7). |
-| doc-fixer | Applies targeted fixes for BLOCKER and MAJOR findings from doc-reviewer, epic-reviewer, docs-style-checker, or dt-style-checker. |
-| doc-location-finder | Use case A: identifies write-target file paths in the docs repo before writing begins. Used by `/impl:jira:docs` (Phase 5.6). |
-| doc-planner | Use case A: synthesises Jira + diffs into a documentation checklist. Used by `/impl:jira:docs` (Phase 5.7). |
-| docs-style-checker | Wraps the docs repo's project-configured prose linter (Vale, markdownlint, remark). Falls back to `dt-style-guide:dt-style-checker` when no repo linter is configured. |
-| epic-reviewer | Reviews Epic drafts for goal clarity, acceptance-criteria testability, scope boundaries, and non-duplication. Pinned to Opus. Used by `/impl:jira:epics` (Phase 7). |
+**Planning & review:** `risk-planner`, `code-review`, `doc-reviewer`,
+`epic-reviewer`, `review-fixer`, `doc-fixer`, `docs-style-checker`, `spec-reviewer`,
+`design-reviewer`, `vi-reviewer`, `ard-reviewer`, `readiness-reviewer`,
+`api-guideline-reviewer`, `guideline-reviewer`.
 
-### Shared reference
+**Writers:** `doc-writer`, `epic-writer`, `release-notes-writer`, `doc-planner`,
+`doc-location-finder`, `idea-reader`.
 
-`skills/_shared/model-routing.md` is the single source of truth for complexity classification, model routing policy (default → Opus thresholds), and the 8-dimension Opus review checklist. All orchestrators read it at runtime. Sub-agents receive the routing block in their prompt and reference the file via absolute path.
+**Testing:** `test-baseliner`, `test-writer`.
 
-Sub-agent handoff schemas live in `skills/<name>/references/handoff.md` (the `skills/<name>/` directories are kept for those reference files even though the SKILL.md was promoted to `agents/<name>.md`).
+**Jira / repo analysis:** `jira-reader`, `diff-summarizer`, `code-scanner`.
+
+**Vuln & upgrade:** `vuln-research`, `vuln-fixer`, `upgrade-planner`,
+`upgrade-executor`.
+
+**Maintenance:** `impl-maintenance`.
 
 ## Model routing
+
+`skills/_shared/model-routing.md` is the single source of truth for complexity
+classification, the model fallback chain, and the 8-dimension Opus code-review
+checklist. All orchestrators load it at runtime; sub-agents receive the routing
+block in their prompt.
 
 | Complexity | Model |
 |------------|-------|
 | SIMPLE | Default session model |
 | MODERATE | Default session model (with structured planning) |
-| SIGNIFICANT / HIGH-RISK | `claude-opus-4.8` (forced via `model:` override) |
+| SIGNIFICANT / HIGH-RISK | Strong tier — `claude-opus-4.8` / `4.7` / `4.6` or `gpt-5.5`, pinned via `model:` override |
+
+The strong tier treats Opus 4.8/4.7/4.6 and GPT-5.5 as peers (fallback chain:
+Opus 4.8 → 4.7 → 4.6 → Haiku 4.5 → GPT-5.5 → Sonnet 4.6 → Sonnet 4.5 → GPT-5.4 →
+Gemini 3.1 Pro).
 
 ## Feature highlights
 
-- **Source-code is the truth, but discrepancies escalate to YOU** (`_shared/source-truth.md`, v1.8.0+): every sub-agent that writes or reviews user-visible docs (`doc-planner`, `doc-reviewer`, `code-scanner`, `epic-reviewer`) verifies enum/option lists, UI labels, defaults, counts, and mode names against the actual source code. When source and Jira description **agree**, the docs cite the verified source. When they **disagree**, the plugin presents an analysis table and asks you per-discrepancy: document as source / document as Jira (with an intentional-discrepancy marker + bug-report draft) / skip and report. The plugin is the analyst; you are the decision-maker. Bug-report drafts land alongside the release-notes draft in your Obsidian vault project folder so you can file defects against the implementation team.
-- **Mandatory style checking with fallback** (v1.7.0+): every docs workflow (`/impl:docs`, `/impl:jira:docs`, `/impl:jira:epics`) runs a style-check phase that cannot be skipped. If Vale (or the repo's configured linter) is unavailable, `docs-style-checker` falls back to `dt-style-checker` from the `dt-style-guide` plugin. Some check is always better than no check.
-- **Branch-per-change** with shared **branch-prefix detection** (`_shared/branch-naming.md`): every branch-creating workflow resolves the prefix via `$GIT_USER_INITIALS` → `git config user.initials` → `git branch -a` sniff → workflow fallback. Teams with `<initials>/`-prefix conventions set the env var or git config once and every workflow follows it automatically.
-- **Branch-per-change**: `/impl:code` and `/upgrade` create a feature branch before touching code; `/fix-vuln` creates one per CVE. `/impl:docs` works on the current branch by default. `/impl:jira` branches when run from a git repo (opt-in at plan approval); never branches in an Obsidian vault.
-- **Jira-driven docs**: `/impl:jira:docs` and `/impl:jira:epics` read Obsidian vault Jira exports, resolve PR URLs as pure local-git identifiers (no Bitbucket REST API), run parallel diff-summarizers or code-scanners per repo, and produce documentation with mandatory inline Jira + PR citations.
-- **Repo discovery via `$REPOS_PATH`**: `/impl:jira:*` resolves repo URL slugs (e.g. `cluster` from `bitbucket.../repos/cluster/...`) to local clone paths by scanning `$REPOS_PATH` (default `/workspace`; colon-separated list supported) and matching `git remote get-url origin`. When multiple local clones share an upstream (e.g. `cluster` + `cluster-repo`), the auto-preferred order is `<slug>-repo` > `<slug>_repo` > `<slug>_fast` > alphabetically last. The user can override at plan approval.
-- **Release-notes draft (use case A)**: `/impl:jira:docs` detects when a VI is release-notes-worthy (`relevant_for_release_notes: Yes` or non-empty `release_versions` in the VI frontmatter) and produces a separate release-notes draft — rendered in the dynatrace-docs `{{#context}}` / `{{#internal-note}}` block format — at a configurable destination. Default destination is the Obsidian project tracking folder under `<vault>/Projects/Products/**/<JIRA_KEY>*`; the same folder is also used for **persistent screenshot staging** (under a `Doc screenshots/` subfolder) when `image_policy: cdn_upload_required` is detected. Alternatives are custom path, stdout, or skip. The draft is **never** written into the docs repo, because that path is owned by Jira-driven automation; the user pastes the draft into Jira and existing automation re-emits it into the docs repo. **Never uses `/tmp/`** for any staged artifact — container restarts would wipe staged screenshots before they can be CDN-uploaded.
-- **Style checking**: `/impl:jira:docs` runs the repo's own linter via `docs-style-checker`; if unconfigured, falls back to `dt-style-checker` (from the optional `dt-style-guide` plugin). `/impl:jira:epics` uses `dt-style-checker` directly for vault content. Both gracefully degrade if `dt-style-guide` is not installed.
-- **Test-writing gate**: `/impl:code` writes tests for all new/changed behaviour via `test-writer` (Phase 3.7) and verifies no regressions against a pre-impl baseline (Phase 3.8). No test framework? The workflow asks — it never silently skips.
-- **Opus code-review gate**: every code workflow runs an Opus review before committing for SIGNIFICANT/HIGH-RISK tasks; `review-fixer` sub-agent auto-applies fixable findings
-- **Post-batch maintenance**: after all workflows, `impl-maintenance` updates the project knowledge base, `copilot-instructions.md`, and docs
-- **Stateless sub-agents**: all sub-agents receive full context in their prompt — no hidden state between calls
-- **Jira-ticket detection in `/impl:docs`**: when called as `/impl:docs @<file>` and the file is a Jira-export markdown (frontmatter `key:` + `[[wikilink]]`s + `## Linked Issues` heading), the skill offers to re-route to `/impl:jira:docs` for proper multi-ticket aggregation and PR analysis.
+- **Full lifecycle**: `idea:` → `create-vi:` → `create-ard:` → `specify:` →
+  `design:` → `epics:` → `implement:` → `document:` → `release-notes:` → `ready:`,
+  each with a dedicated Opus/GPT-5.5 reviewer sub-agent.
+- **Source-code is the truth, discrepancies escalate to YOU**
+  (`_shared/source-truth.md`): every sub-agent that writes or reviews user-visible
+  docs verifies enums, labels, defaults, and counts against the actual source.
+  When source and Jira disagree, the plugin presents an analysis table and asks
+  you per-discrepancy — it never silently picks a winner.
+- **Mandatory style checking with fallback**: docs workflows run a style-check
+  phase that cannot be skipped. If the repo's linter (Vale, markdownlint, remark)
+  is unavailable, `docs-style-checker` falls back to `dt-style-checker` from the
+  `dt-style-guide` plugin. Some check is always better than no check.
+- **Branch-per-change** with shared **branch-prefix detection**
+  (`_shared/branch-naming.md`): resolves the prefix via `$GIT_USER_INITIALS` →
+  `git config user.initials` → existing-branch sniff → workflow fallback. Teams
+  with `<initials>/`-prefix conventions set the env var once and every workflow
+  follows it.
+- **Jira-driven docs & epics**: `document:` (Jira mode) and `epics:` read Obsidian
+  vault Jira exports, resolve PR URLs as **pure local-git identifiers** (no
+  Bitbucket REST API, no HTTPS fetch), run parallel `diff-summarizer`s or
+  `code-scanner`s per repo, and produce output with mandatory inline Jira + PR
+  citations.
+- **Repo discovery via `$REPOS_PATH`**: Jira workflows resolve repo URL slugs to
+  local clone paths by scanning `$REPOS_PATH` (default `/workspace`; colon-separated
+  list supported) and matching `git remote get-url origin`. When multiple clones
+  share an upstream, the fast copy (`<slug>-repo`) is auto-preferred.
+- **Release-notes draft**: `release-notes:` renders dynatrace-docs block format
+  and writes to markdown or stdout — **never** into the docs repo (Jira automation
+  owns that path); you paste the draft into Jira and automation re-emits it.
+  Staged artifacts are **never** written to `/tmp/` (container restarts wipe it).
+- **Test-writing gate**: `implement:` writes tests for all new/changed behaviour
+  via `test-writer` and verifies no regressions against a pre-impl baseline. No
+  test framework? The workflow asks — it never silently skips.
+- **Opus/GPT-5.5 code-review gate**: code workflows run a strong-tier review before
+  committing for SIGNIFICANT/HIGH-RISK tasks; `review-fixer` auto-applies fixable
+  findings.
+- **Post-batch maintenance**: `impl-maintenance` updates the knowledge base,
+  `copilot-instructions.md`, and project docs after each workflow.
+- **Stateless sub-agents**: every sub-agent receives full context in its prompt —
+  no hidden state between calls.
+
+## Not ported from the Claude Code edition
+
+Two features from the upstream Claude Code plugin are intentionally omitted because
+they depend on capabilities GitHub Copilot CLI does not expose:
+
+- **Session cost reporting** (`/statusline`, `emit-cost`) — no cost/usage API.
+- **Statusline integration** — no statusline extension point.
+
+## Hooks
+
+- **notify-done** — desktop notification when a workflow completes.
+- **preload-context** — injects project context on lifecycle triggers.
+- **changelog-owners-reminder** — dynatrace-docs frontmatter reminder.
 
 ## License
 

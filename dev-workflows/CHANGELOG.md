@@ -4,6 +4,46 @@ All notable changes to the **dev-workflows** plugin are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow semver at the plugin level.
 
+## [2.0.0] — 2026-07-13
+
+Major re-sync with the upstream Claude Code `dev-workflows` plugin (v2.30.0),
+which had evolved into a full product-development lifecycle while this Copilot
+edition fell behind. **Breaking**: triggers flattened and renamed.
+
+### Added
+- **Product-development lifecycle skills** ported from Claude Code: `idea:`,
+  `create-vi:`, `create-ard:`, `specify:`, `design:`, `epics:`, `release-notes:`,
+  `ready:`, `docs-profile:`, `feedback:`, `prompt:`, `prompt-brainstorm:`,
+  `prompt-grill-me:`.
+- **11 new sub-agents**: `idea-reader`, `vi-reviewer`, `ard-reviewer`,
+  `spec-reviewer`, `design-reviewer`, `readiness-reviewer`, `doc-writer`,
+  `epic-writer`, `release-notes-writer`, plus the extracted `api-guideline-reviewer`
+  and `guideline-reviewer` review agents (the reviewer skills are now thin
+  dispatchers). Total sub-agents: 30.
+- **`dynatrace-docs/` reference bundle** and 10 handoff schemas consolidated under
+  `skills/_shared/handoff/`.
+- **GPT-5.5 added to the strong model tier** as a peer of Opus 4.8/4.7/4.6
+  (GPT models were unavailable in Claude Code, so the upstream used Opus only).
+
+### Changed — BREAKING
+- **Triggers flattened and renamed**:
+  - `impl:code:` / `impl:` → **`implement:`**
+  - `impl:docs:` and `impl:jira:docs:` → **`document:`** (dual-mode)
+  - `impl:jira:epics:` → **`epics:`**
+  - `fix-vuln:` → **`vuln:`**
+- Reviewer skills (`api-guideline-reviewer`, `guideline-reviewer`) split into thin
+  dispatcher skills + dedicated review agents holding the logic.
+- Target/global instruction-file references updated from `CLAUDE.md` /
+  `~/.copilot/CLAUDE.md` to `.github/copilot-instructions.md` /
+  `~/.copilot/copilot-instructions.md` throughout.
+
+### Removed
+- Legacy skills `impl`, `impl-dispatcher`, `impl-docs`, `impl-jira`, `fix-vuln`
+  and 9 orphaned sub-agent handoff directories.
+- **Session cost reporting** (`/statusline`, `emit-cost`, cost-emission refs) and
+  **statusline integration** — intentionally not ported; GitHub Copilot CLI
+  exposes no cost/usage API or statusline extension point.
+
 ## [1.8.2] — 2026-06-16
 
 ### Changed

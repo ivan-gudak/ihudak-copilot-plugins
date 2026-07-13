@@ -117,72 +117,91 @@ All orchestrators that dispatch sub-agents (`impl`, `impl-docs`, `impl-jira`, `f
 ## `dev-workflows` plugin — skill relationships
 
 ```
-impl:code:              → impl → [risk-planner@Opus plan critique] → [code-review@Opus] → review-fixer → test-writer → tests → impl-maintenance
-impl:                   → impl-dispatcher (help page; does not run a workflow)
-impl:docs:          → impl-docs → [doc-reviewer] → [doc-fixer] → impl-maintenance
-impl:jira:docs:     → impl-jira → jira-reader → [diff-summarizer×N (parallel)] → [doc-location-finder] → [doc-planner] → writing → [docs-style-checker → dt-style-checker fallback] → [doc-fixer] → [doc-reviewer] → [doc-fixer] → impl-maintenance
-impl:jira:epics:    → impl-jira → jira-reader → [code-scanner×N (parallel, optional)] → writing → [dt-style-checker] → [doc-fixer] → [epic-reviewer@Opus] → [doc-fixer] → impl-maintenance
-fix-vuln:           → vuln-research → vuln-fixer → [code-review@Opus] → review-fixer → tests → impl-maintenance
-upgrade:            → upgrade-planner → upgrade-executor → [code-review@Opus] → review-fixer → tests → impl-maintenance
-                    └── test-baseliner    (used by upgrade-executor, vuln-fixer, and impl:code:)
-                    └── test-writer       (used by impl:code: only — Phase 3.7)
-                    └── risk-planner      (used by impl:code: — Phase 2.5, replaces rubber-duck)
-                    └── code-review       (used by impl:code: — Phase 3.9, fix-vuln, upgrade)
-                    └── doc-reviewer      (used by impl:docs: Phase 3.5, and impl:jira:docs: Phase 7)
-                    └── doc-fixer         (used by impl:docs: Phase 3.5, impl:jira: Phases 6.7/7)
-                    └── doc-location-finder (used by impl:jira:docs: Phase 5.6)
-                    └── doc-planner       (used by impl:jira:docs: Phase 5.7)
-                    └── docs-style-checker (used by impl:jira: Phase 6.7)
+Lifecycle (each phase writes a reviewable artifact, offers the next):
+idea:            → idea → idea-reader → (problem statement)
+create-vi:       → create-vi → [vi-reviewer@strong] → (Value Increment)
+create-ard:      → create-ard → [ard-reviewer@strong] → (ARD, resolves decisions)
+specify:         → specify (jira-driven) → [spec-reviewer@strong] → (engineering spec)
+design:          → design → [design-reviewer@strong] → (engineering design)
+epics:           → epics (jira-driven) → jira-reader → [code-scanner×N (parallel, optional)] → writing → [dt-style-checker] → [doc-fixer] → [epic-reviewer@strong] → [doc-fixer] → impl-maintenance
+release-notes:   → release-notes → release-notes-writer → (dynatrace-docs block draft; NEVER written to docs repo)
+ready:           → ready → [readiness-reviewer@strong] → impl-maintenance
+
+Implementation & maintenance:
+implement:       → implement → [risk-planner@strong plan critique] → [code-review@strong] → review-fixer → test-writer → tests → impl-maintenance
+document:        → document (dual-mode)
+                    ├─ doc-edit mode → writing → [docs-style-checker] → [doc-fixer] → [doc-reviewer] → [doc-fixer] → impl-maintenance
+                    └─ jira mode → jira-reader → [diff-summarizer×N (parallel)] → [doc-location-finder] → [doc-planner] → writing → [docs-style-checker → dt-style-checker fallback] → [doc-fixer] → [doc-reviewer] → [doc-fixer] → impl-maintenance
+vuln:            → vuln → vuln-research → vuln-fixer → [code-review@strong] → review-fixer → tests → impl-maintenance
+upgrade:         → upgrade → upgrade-planner → upgrade-executor → [code-review@strong] → review-fixer → tests → impl-maintenance
+docs-profile:    → docs-profile → (writes .dev-workflows/docs-profile.yml as reviewable PR; consumed by document: jira mode)
+
+Shared sub-agents:
+                    └── test-baseliner    (used by upgrade-executor, vuln-fixer, and implement:)
+                    └── test-writer       (used by implement: only — Phase 3.7)
+                    └── risk-planner      (used by implement: — Phase 2.5, replaces rubber-duck)
+                    └── code-review       (used by implement: — Phase 3.9, vuln, upgrade)
+                    └── doc-reviewer      (used by document: doc-edit Phase 3.5, and jira mode Phase 7)
+                    └── doc-fixer         (used by document: Phase 3.5, jira mode Phases 6.7/7, epics:)
+                    └── doc-location-finder (used by document: jira mode Phase 5.6)
+                    └── doc-planner       (used by document: jira mode Phase 5.7)
+                    └── docs-style-checker (used by document: Phase 6.7)
                     └── dt-style-checker  (from dt-style-guide plugin; fallback for docs-style-checker, primary for epics)
-                    └── epic-reviewer     (used by impl:jira:epics: Phase 7)
-api-guideline-reviewer:  → standalone orchestrator; reviews OpenAPI specs against Dynatrace REST API + IAM guidelines
-guideline-reviewer:     → standalone orchestrator; reviews code/UI against Dynatrace Experience Standards (GUIDElines)
+                    └── epic-reviewer     (used by epics: Phase 7)
+
+Standalone reviewers (thin dispatcher skill → agent holding the logic):
+api-guideline-reviewer:  → api-guideline-reviewer skill → api-guideline-reviewer agent (OpenAPI vs Dynatrace REST API + IAM guidelines)
+guideline-reviewer:      → guideline-reviewer skill → guideline-reviewer agent (code/UI vs Dynatrace Experience Standards)
+
+Utilities: feedback:, prompt:, prompt-brainstorm:, prompt-grill-me:
+
+"@strong" = strong reasoning tier (Opus 4.8/4.7/4.6 or GPT-5.5), pinned by the caller.
 ```
 
-Key invariants enforced by all three code orchestrators:
+Key invariants enforced by all three code orchestrators (`implement:`, `vuln:`, `upgrade:`):
 - Branch created before any file is touched (`feat/<slug>` or equivalent)
-- Opus review gate runs **before** tests for `SIGNIFICANT`/`HIGH-RISK` tasks
+- Strong-tier (Opus/GPT-5.5) review gate runs **before** tests for `SIGNIFICANT`/`HIGH-RISK` tasks
 - `review-fixer` handles BLOCKER findings; only one review-fixer cycle per review
 - `impl-maintenance` runs post-batch to update KB, `copilot-instructions.md`, and project docs
 
-Key invariants for `impl:code:` specifically:
+Key invariants for `implement:` specifically:
 - Test baseline captured (Phase 2.6) **before** any source edits, using `test-baseliner`
 - `test-writer` sub-agent (Phase 3.7) writes tests for **new/changed behaviour** — mandatory for code changes
 - If no test framework is detected, user is asked explicitly — test-writing is never silently skipped
 - Full test suite verified against baseline (Phase 3.8) before Phase 4
 
-Key invariants for `impl:docs:`:
+Key invariants for `document:` doc-edit mode:
 - **No branch creation by default** — works on current branch unless user requests one
 - **No test-baseliner, no test-writer, no code-review** — docs-only phases only
 - `doc-reviewer` sub-agent (Phase 3.5) performs comprehensive review: links, headings, wikilinks, style, completeness
 - BLOCKER findings trigger a fix cycle via `doc-fixer` sub-agent (max one fix + one re-review); CONCERNs are recorded and may be fixed inline
-- Mixed code + docs changes must use `impl:code:` instead
+- Mixed code + docs changes must use `implement:` instead
 
-Key invariants for `impl:jira:`:
-- Subcommand dispatch is explicit: `impl:jira:docs:` (feature docs), `impl:jira:epics:` (epic writing), bare `impl:jira:` → ask
+Key invariants for `document:` jira mode and `epics:`:
+- Mode dispatch is by trigger: `document:` (feature docs) vs `epics:` (epic writing)
 - **Zero external API calls** — PR URLs from Jira exports are identifiers only; no `gh`, no Bitbucket REST API, no HTTPS fetch to Bitbucket; all resolution is pure local `git` on clones under `$REPOS_PATH` (default `/workspace`; colon-separated list supported via `REPOS_PATH=/a:/b:/c`)
 - `jira-reader` is strictly read-only — never modifies vault files
-- Parallel sub-agent invocation: all diff-summarizers (use case A) or code-scanners (use case B) are launched in a **single response** (one `task()` per repo)
-- Branch setup (Phase 5.5) happens **before** writing output files (Phase 6) — never after
+- Parallel sub-agent invocation: all diff-summarizers (`document:` jira mode) or code-scanners (`epics:`) are launched in a **single response** (one `task()` per repo)
+- Branch setup happens **before** writing output files — never after
 - Branch policy: walk up cwd for `.obsidian/` → `obsidian` (never branch); else `git rev-parse` → `git_repo` (branch opt-in) or `plain_dir` (never branch). User can override at plan approval
-- Phase 5.6 `doc-location-finder` (use case A only) identifies write targets before writing begins
-- Phase 5.7 `doc-planner` (use case A only) synthesises Jira + diffs into a documentation checklist
-- Phase 6.7 `docs-style-checker` + `doc-fixer` lint prose after writing, before review gate; if no repo linter detected, falls back to `dt-style-checker` (from `dt-style-guide` plugin) when installed
-- Phase 6.7 (use case B / epics): `dt-style-checker` is the primary style checker (vault content has no repo linter); gracefully skipped if `dt-style-guide` not installed
-- Phase 7 review gate: `doc-reviewer` (use case A) or `epic-reviewer@Opus` (use case B); `doc-fixer` resolves BLOCKERs; cap 1 fix cycle + 1 re-review
+- `doc-location-finder` (`document:` jira mode only) identifies write targets before writing begins
+- `doc-planner` (`document:` jira mode only) synthesises Jira + diffs into a documentation checklist
+- `docs-style-checker` + `doc-fixer` lint prose after writing, before review gate; if no repo linter detected, falls back to `dt-style-checker` (from `dt-style-guide` plugin) when installed
+- `epics:`: `dt-style-checker` is the primary style checker (vault content has no repo linter); gracefully skipped if `dt-style-guide` not installed
+- Review gate: `doc-reviewer` (`document:`) or `epic-reviewer@strong` (`epics:`); `doc-fixer` resolves BLOCKERs; cap 1 fix cycle + 1 re-review
 - Sub-agents return `DIRTY_TREE` / `REFRESH_BLOCKED` when they cannot refresh repos — orchestrator escalates to user; never silent failure
-- Every written claim must cite originating Jira key (`[[KEY]]`) + PR URL (use case A) or file path (use case B)
+- Every written claim must cite originating Jira key (`[[KEY]]`) + PR URL (`document:`) or file path (`epics:`)
 - Writes never touch `_archive/` (vault read-only zone); never write outside cwd unless user provides explicit absolute path
 
 ## Test-writing requirement for code changes
 
-Any `impl:code:` (or `impl:`) invocation that touches source code **must** produce at least
+Any `implement:` invocation that touches source code **must** produce at least
 one passing test for each new or changed behaviour before the workflow is considered complete.
 
 - Prefer unit tests; use integration/e2e only if that is the project's established pattern.
 - Tests must be meaningful (assert specific behaviour), deterministic, and follow existing project conventions.
 - If no test framework is detected, the workflow surfaces this explicitly and asks the user how to proceed — it never silently skips test-writing.
-- Docs-only changes (`impl:docs:`) are exempt from this requirement.
+- Docs-only changes (`document:` doc-edit mode) are exempt from this requirement.
 
 ## Updating the installed plugin after editing
 
