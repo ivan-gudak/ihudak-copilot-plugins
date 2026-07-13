@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "description": "dev-workflows plugin hooks — completion notification, git context injection on impl:/vuln:/upgrade: prompts, and test-run notification.",
+  "description": "dev-workflows plugin hooks — completion notification, git/context injection on workflow prompts, test-run notification, and dynatrace-docs frontmatter reminder.",
   "hooks": {
     "Stop": [
       {
@@ -18,10 +18,14 @@
       {
         "type": "command",
         "bash": "bash ${PLUGIN_ROOT}/hooks/test-notify.sh"
+      },
+      {
+        "type": "command",
+        "bash": "bash ${PLUGIN_ROOT}/hooks/changelog-owners-reminder.sh"
       }
     ]
   },
   "_comments": {
-    "PostToolUse_matcher": "Claude Code supports a 'matcher' field (e.g. matcher: 'Bash') to restrict PostToolUse hooks to specific tools. Copilot CLI does not support matchers — test-notify.sh fires on every tool use. The script must be fast and exit 0 quickly for non-Bash invocations."
+    "PostToolUse_matcher": "Claude Code supports a 'matcher' field (e.g. matcher: 'Bash' or 'Edit|Write') to restrict PostToolUse hooks to specific tools. Copilot CLI does not support matchers — both PostToolUse scripts fire on every tool use. Each script must be fast and exit 0 quickly for irrelevant invocations: test-notify.sh returns unless the command is a test runner; changelog-owners-reminder.sh returns unless the edited file is a dynatrace-docs .md content page."
   }
 }

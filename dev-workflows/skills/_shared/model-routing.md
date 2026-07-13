@@ -1,9 +1,15 @@
 # Model Routing by Task Complexity (Shared Policy)
 
-This document is the **single source of truth** for how the `impl:`, `vuln:`, and
-`upgrade:` workflows (and their sub-agents) classify tasks and route them to the
-appropriate model. Every top-level orchestrator MUST load and follow this policy
-before doing any planning, implementation, or review work.
+This document is the **single source of truth** for how the dev-workflows
+orchestrators classify tasks and route them to the appropriate model. Every
+pipeline orchestrator — `implement:`, `vuln:`, `upgrade:`, `document:`, `epics:`,
+`release-notes:`, `docs-profile:`, `idea:`, `create-vi:`, `create-ard:`,
+`specify:`, `design:`, `ready:` — and their sub-agents MUST load and follow this
+policy before doing any planning, implementation, review, or authoring work.
+
+Standalone review orchestrators (`api-guideline-reviewer:`, `guideline-reviewer:`)
+and the utility surfaces (`feedback:`, `prompt:`, `prompt-brainstorm:`,
+`prompt-grill-me:`) are exempt — they do not classify complexity or route models.
 
 ---
 
@@ -21,7 +27,7 @@ Every task MUST be classified into exactly one of:
 ### 1.1 Classify as `SIGNIFICANT` or `HIGH-RISK` if **any** of the following apply
 
 - Major framework or library upgrade (any **major** version bump, e.g. Spring Boot 2→3, React 17→18, Java 11→21).
-- Vulnerability fix that requires a **major** dependency version bump or **source-code changes** in the repo (API renames, signature changes, deprecation removals, behaviour adaptations). See the "Vulnerability-fix exception" below — a CVE's category alone (RCE, deserialization, auth bypass, etc.) does **not** force this class regardless of which orchestrator (`vuln:`, `impl:`, `upgrade:`) is invoking the rubric; what matters is the size of the actual fix.
+- Vulnerability fix that requires a **major** dependency version bump or **source-code changes** in the repo (API renames, signature changes, deprecation removals, behaviour adaptations). See the "Vulnerability-fix exception" below — a CVE's category alone (RCE, deserialization, auth bypass, etc.) does **not** force this class regardless of which orchestrator (`vuln:`, `implement:`, `upgrade:`) is invoking the rubric; what matters is the size of the actual fix.
 - Touches authentication, authorization, sessions, tokens, OAuth/OIDC, JWT, cookies, CSRF, CORS, or permissions.
 - Touches database schema, migrations, or data integrity (DDL, foreign keys, indexes, backfills).
 - Public API or wire-protocol contract changes (REST/GraphQL/gRPC routes, request/response shape, event schemas, SDK signatures).
@@ -29,6 +35,7 @@ Every task MUST be classified into exactly one of:
 - Concurrency, caching, transactions, locking, retries, idempotency, async/queue processing.
 - Payment, billing, audit, compliance, PII, or other security-sensitive logic.
 - Changes touching **more than 3–5 non-test files**.
+- **Multi-source input** — `implement:` was given more than one code repository, or any directory input (an exported Jira ticket folder, or a spec/design folder). Large multi-source briefs are cross-cutting by nature; this floors the task at `SIGNIFICANT`. See §8 for the fan-out scan this triggers. The floor is overridable at plan approval if the user judges the work genuinely smaller than its input footprint.
 - Unclear requirements, large unknowns, or otherwise high blast radius.
 
 `HIGH-RISK` is the same list with an additional severity multiplier — pick it
@@ -45,7 +52,7 @@ when the change is **production-critical, security-critical, or data-irreversibl
   with no behavioural impact.
 
 > **When in doubt, escalate one level.** Misclassifying upward is cheap; the
-> only cost is one extra Opus call. Misclassifying downward can ship bugs.
+> only cost is one extra strong-model call. Misclassifying downward can ship bugs.
 
 > **Vulnerability-fix exception — classify by fix size, not CVE category.**
 > Two distinct rules apply here:
@@ -53,7 +60,7 @@ when the change is **production-critical, security-critical, or data-irreversibl
 > **(a) Universal — CVE category never forces SIGNIFICANT/HIGH-RISK.** A
 > CVE's category (RCE, deserialization, auth bypass, etc.) drives *attention*
 > but does **not** by itself force a SIGNIFICANT/HIGH-RISK class, regardless
-> of which orchestrator (`vuln:`, `impl:`, `upgrade:`) is invoking the
+> of which orchestrator (`vuln:`, `implement:`, `upgrade:`) is invoking the
 > rubric. Most CVEs are remediated by a patch or minor dependency bump with
 > no source-code changes — those are MODERATE.
 >
@@ -66,39 +73,73 @@ when the change is **production-critical, security-critical, or data-irreversibl
 > JWT, OAuth, session libs). See `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/fix-vuln/SKILL.md`
 > "Step 0 — Classify & Route" for the full vulnerability rubric.
 >
-> **For `impl:` and `upgrade:` orchestrators**, the standard rubric in §1.1
+> **For `implement:` and `upgrade:` orchestrators**, the standard rubric in §1.1
 > applies — there is no per-CVE size analysis available at classification
 > time. If the user wants CVE-aware sizing, route the work through `vuln:`.
 
 ---
 
-## 2. Model fallback chain ("strongest available reasoning model")
+## 2. Strong (reasoning) tier — "strongest available reasoning model"
 
-Use the first model in this list that is available in the environment:
+Reasoning-heavy work (planning critique, code review, product-doc review, Epic
+review, engineering-design review, synthesis) runs on the **strong tier**.
 
-1. `claude-opus-4.8`
-2. `claude-opus-4.7`
-3. `claude-opus-4.6`
-4. `claude-opus-4.5`
-5. `gpt-5.5` (non-Claude fallback — note in the report that no Opus was available)
-6. `claude-sonnet-4.6` (further fallback — note "no Opus or GPT-5.5 available")
-7. `claude-sonnet-4.5` (further fallback — note "no Opus, GPT-5.5, or Sonnet 4.6 available")
-8. `gpt-5.4` (further fallback)
-9. `gemini-3.1-pro-preview` (further fallback)
+The strong tier is a **peer set**, not a single vendor ladder:
 
-`gemini-3.1-pro-preview` is the floor; if no model in the list is available, abort the
-SIGNIFICANT/HIGH-RISK gates and ask the user how to proceed rather than
+- `claude-opus-4.8`
+- `claude-opus-4.7`
+- `claude-opus-4.6`
+- `gpt-5.5`
+
+These four are **first-class peers**. GPT-5.5 is a strong reasoning model in its
+own right — it is **not** a degraded fallback, and choosing it is never announced
+as a downgrade. (GPT models were unavailable in Claude Code, so the original
+policy was Opus-only; on Copilot CLI, GPT-5.5 is a co-equal strong option.)
+
+**Selection rule:**
+
+1. Prefer the model the **orchestrator is already running under** if it is in the
+   strong-tier peer set (e.g. an Opus 4.8 session pins gates to Opus 4.8; a
+   GPT-5.5 session pins gates to GPT-5.5).
+2. Otherwise pick the first available peer in the list order above.
+
+**Further fallbacks** (only if no strong-tier peer is available — announce the
+degradation in the routing record and final report):
+
+5. `claude-opus-4.5`
+6. `claude-sonnet-4.6`
+7. `claude-sonnet-4.5`
+8. `gpt-5.4`
+9. `gemini-3.1-pro-preview`
+
+`gemini-3.1-pro-preview` is the floor; if no model in the list is available,
+abort the SIGNIFICANT/HIGH-RISK gates and ask the user how to proceed rather than
 silently downgrading.
 
 The list of available models can be inspected from the `task` tool's `model`
-parameter documentation. If none of the Opus models are available **and** the
-task is `SIGNIFICANT` / `HIGH-RISK`, proceed with `gpt-5.5` (or the next
-available model in the chain) but **announce the degradation** in the Phase 0 /
-Step 0 routing record and again in the final report.
+parameter documentation. The "currently selected model" is whatever the
+orchestrator itself is running under (see `~/.copilot/settings.json` → `model`).
+Sub-agents inherit it unless the orchestrator explicitly overrides via the
+`task` tool's `model` argument.
 
-The "currently selected model" is whatever the orchestrator itself is running
-under (see `~/.copilot/settings.json` → `model`). Sub-agents inherit it unless
-the orchestrator explicitly overrides via the `task` tool's `model` argument.
+---
+
+## 2.1 Detection ("mid-tier / throughput") chain
+
+Some steps are deliberately **not** reasoning-heavy — mechanical detection, repo
+scanning, transcription, formatting, mechanical fixes. Pin these to the detection
+chain via the `task` tool's `model:` override; do **not** let them inherit the
+session model (a strong-tier session would otherwise run "cheap" steps on an
+expensive model, defeating the point).
+
+Use the first available:
+
+1. `claude-sonnet-4.6`
+2. `claude-sonnet-4.5`
+3. `gpt-5.4` (further fallback — note the degradation in the report)
+
+If none is available, fall back to the session model and announce it. Record the
+chosen model as `detection_model:` in the `model_routing` block.
 
 ---
 
@@ -107,9 +148,9 @@ the orchestrator explicitly overrides via the `task` tool's `model` argument.
 ### 3.1 SIMPLE / MODERATE
 
 - Continue with the currently selected model.
-- Do **not** add mandatory Opus steps.
+- Do **not** add mandatory strong-tier gate steps.
 - Proceed with normal planning, implementation, testing, and fixes.
-- Skip the dedicated Opus code review (the standard `risk-planner` consult
+- Skip the dedicated strong-tier code review (the standard `risk-planner` consult
   — when called — uses the workflow's default model selection).
 
 ### 3.2 SIGNIFICANT / HIGH-RISK — mandatory sequence
@@ -117,26 +158,28 @@ the orchestrator explicitly overrides via the `task` tool's `model` argument.
 The orchestrator MUST execute these steps in order:
 
 1. **Classify** the task and record the decision (see §4).
-2. **Plan with Opus.** Delegate planning (or planning critique) to a sub-agent
-   running on the strongest available reasoning model from §2. See §5 for the
-   exact `task` invocation pattern.
-3. **Implement** with the currently selected model **or** Sonnet (Sonnet is fine
-   for raw coding throughput; Opus is not required here). Sub-agents that do
-   the actual file edits inherit the orchestrator's model unless overridden.
-4. **Opus code review** of the completed implementation. This is a dedicated
-   `code-review` sub-agent invocation pinned to Opus. It MUST cover every item
-   in the §6 checklist. Tests MUST NOT be run until this review completes.
+2. **Plan with the strong tier.** Delegate planning (or planning critique) to a
+   sub-agent running on the strongest available reasoning model from §2. See §5
+   for the exact `task` invocation pattern.
+3. **Implement** with the currently selected model **or** the detection chain
+   (fine for raw coding throughput; the strong tier is not required here).
+   Sub-agents that do the actual file edits inherit the orchestrator's model
+   unless overridden.
+4. **Strong-tier code review** of the completed implementation. This is a
+   dedicated `code-review` sub-agent invocation pinned to the §2 strong tier. It
+   MUST cover every item in the §6 checklist. Tests MUST NOT be run until this
+   review completes.
 5. **Run tests** (build + test suite per the executor / fixer skill).
-6. **Apply review fixes** — fixes flagged by the Opus review may be implemented
-   by the currently selected model **or** Sonnet (no Opus required for the fix
-   edits themselves).
+6. **Apply review fixes** — fixes flagged by the review may be implemented by the
+   currently selected model **or** the detection chain (no strong tier required
+   for the fix edits themselves).
 7. **Re-run tests** if any review fixes were applied.
-8. **Final summary** — include the classification, the Opus models used at each
-   step (or the Sonnet fallback notice), and a one-line outcome per checklist
-   item from §6.
+8. **Final summary** — include the classification, the models used at each step
+   (or the fallback notice), and a one-line outcome per checklist item from §6.
 
-> **Do not use Opus for routine implementation steps unless the user explicitly
-> requested it.** Opus is reserved for the planning and the dedicated review.
+> **Do not use the strong tier for routine implementation steps unless the user
+> explicitly requested it.** The strong tier is reserved for planning and the
+> dedicated review.
 
 ---
 
@@ -149,21 +192,22 @@ sub-agent it invokes. Format:
 model_routing:
   classification: SIMPLE | MODERATE | SIGNIFICANT | HIGH-RISK
   reason: <one-line justification citing the §1 trigger that applied>
-  current_model: <e.g. claude-opus-4.8>      # the model the orchestrator is running
-  planning_model: <e.g. claude-opus-4.8>     # only set for SIGNIFICANT/HIGH-RISK
-  review_model:   <e.g. claude-opus-4.8>     # only set for SIGNIFICANT/HIGH-RISK
+  current_model: <e.g. claude-opus-4.8 or gpt-5.5>   # the model the orchestrator is running
+  planning_model: <e.g. claude-opus-4.8>     # strong tier; only set for SIGNIFICANT/HIGH-RISK
+  review_model:   <e.g. claude-opus-4.8>     # strong tier; only set for SIGNIFICANT/HIGH-RISK
   implementation_model: <e.g. claude-sonnet-4.6 or current_model>
+  detection_model: <e.g. claude-sonnet-4.6>  # mid-tier steps (§2.1); never the session model
   fixes_model:    <same as implementation_model>
-  opus_available: true | false
+  strong_available: true | false             # true if any §2 peer (Opus 4.8/4.7/4.6 or GPT-5.5) is available
   gate_tests_on_review: true | false   # optional; default false. Only meaningful for SIGNIFICANT/HIGH-RISK.
                                        # When true, the executor/fixer sub-agent stops after the build,
                                        # returns status: AWAITING_REVIEW, and waits for a follow-up call
                                        # with phase: verify-resume to run tests / commit / PR.
-  notes: <optional — e.g. "Opus 4.8 unavailable, fell back to 4.7">
+  notes: <optional — e.g. "Opus unavailable; ran gates on gpt-5.5 (peer, not a downgrade)">
 ```
 
-The `phase` field used to resume an executor/fixer after the Opus review is
-completed is **`verify-resume`** for both `upgrade-executor` and `vuln-fixer`
+The `phase` field used to resume an executor/fixer after the strong-tier review
+is completed is **`verify-resume`** for both `upgrade-executor` and `vuln-fixer`
 (harmonised). The executor/fixer must accept this value and run all remaining
 steps (verify tests; for the fixer also commit + PR).
 
@@ -175,19 +219,22 @@ Sub-agents that receive a `model_routing` block:
 - `upgrade-planner`, `vuln-research`: use the `planning_model` if present
   (orchestrator should invoke them with the corresponding `task` `model:` arg).
 - `upgrade-executor`, `vuln-fixer`: **do not run tests** until the orchestrator
-  has confirmed the Opus review has completed (when classification is
+  has confirmed the strong-tier review has completed (when classification is
   SIGNIFICANT/HIGH-RISK). The orchestrator achieves this by invoking the
   executor/fixer **without** the build+test phase first (apply changes only),
   then running the review, then invoking the executor/fixer again to run tests.
   Equivalently, the orchestrator may invoke a single combined call with a
   `gate_tests_on_review: true` flag — both styles are acceptable.
-- `risk-planner`, `code-review`, `epic-reviewer`: the orchestrator pins these to
-  the §2 fallback chain via the `task` tool's `model:` argument. They receive
-  the `model_routing` block for context validation and reporting.
-- `doc-fixer`, `doc-location-finder`, `doc-planner`, `docs-style-checker`,
-  `doc-reviewer`: receive the block for reporting; behaviour is unchanged.
-- `test-baseliner`, `impl-maintenance`: receive the block for reporting only;
-  behaviour is unchanged.
+- `risk-planner`, `code-review`, `epic-reviewer`, `doc-reviewer`, `vi-reviewer`,
+  `ard-reviewer`, `spec-reviewer`, `design-reviewer`, `readiness-reviewer`: the
+  orchestrator pins these to the §2 strong tier via the `task` tool's `model:`
+  argument. They receive the `model_routing` block for context and reporting.
+- `jira-reader`, `code-scanner`, `diff-summarizer`, `doc-location-finder`,
+  `docs-style-checker`, `doc-fixer`: pinned to the §2.1 detection chain.
+- `doc-planner`, `doc-writer`, `epic-writer`, `release-notes-writer`: strong tier
+  for SIGNIFICANT/judgment authoring; detection chain for MODERATE (see §9).
+- `test-baseliner`, `test-writer`, `impl-maintenance`: receive the block for
+  reporting only; behaviour is unchanged.
 
 ---
 
@@ -198,26 +245,26 @@ The CLI's `task` tool accepts an explicit `model:` override. Use it like this:
 ```
 task(
   agent_type: "dev-workflows:risk-planner" | "dev-workflows:code-review" | "general-purpose",
-  model:      "claude-opus-4.8",   # or the highest available per §2
+  model:      "claude-opus-4.8",   # or the highest available strong-tier peer per §2
   prompt:     "<full self-contained context — sub-agent has no memory>",
-  description:"Opus planning critique" | "Opus code review",
+  description:"Strong-tier planning critique" | "Strong-tier code review",
   mode:       "sync"               # always sync for plan/review gates
 )
 ```
 
 - For **planning** on SIGNIFICANT/HIGH-RISK tasks, prefer `agent_type: "dev-workflows:risk-planner"`
-  with Opus, asking it to critique the proposed plan.
+  with the strong tier, asking it to critique the proposed plan.
 - For **post-implementation review** on SIGNIFICANT/HIGH-RISK tasks, use
-  `agent_type: "dev-workflows:code-review"` with Opus, passing the diff and §6 checklist.
+  `agent_type: "dev-workflows:code-review"` with the strong tier, passing the diff and §6 checklist.
 - If `dev-workflows:code-review` is unavailable in the environment, fall back to
-  `agent_type: "general-purpose"` with the same Opus model and the explicit
+  `agent_type: "general-purpose"` with the same strong-tier model and the explicit
   §6 checklist embedded in the prompt.
 
 ---
 
-## 6. Mandatory Opus code-review checklist (SIGNIFICANT / HIGH-RISK)
+## 6. Mandatory strong-tier code-review checklist (SIGNIFICANT / HIGH-RISK)
 
-The post-implementation Opus review MUST explicitly comment on each of:
+The post-implementation review MUST explicitly comment on each of:
 
 1. **Correctness** — does the change actually do what was planned, including all
    listed acceptance criteria and edge cases?
@@ -254,7 +301,7 @@ The orchestrator's final report MUST include a `### Model Routing` section:
 - Planning model: <model>
 - Implementation model: <model>
 - Review model: <model>  (or "n/a — SIMPLE/MODERATE")
-- Opus checklist verdicts:
+- Strong-tier checklist verdicts:
   - Correctness: OK | CONCERN | BLOCKER
   - Security: ...
   - Architecture: ...
@@ -268,3 +315,111 @@ The orchestrator's final report MUST include a `### Model Routing` section:
 
 For SIMPLE/MODERATE tasks the verdict list MAY be omitted; the classification
 and reason are still required.
+
+---
+
+## 8. Large-input scan fan-out
+
+When a scanning step must digest more than a single working tree, a single
+explorer subagent on a weak session model comprehends it poorly. This section
+is the shared policy for that case. It is consulted by `implement:` and
+generalizes the pattern `epics:` already uses.
+
+### 8.1 Trigger (input shape, not measured volume)
+
+Fan out when **any** of these structural facts hold for the invocation:
+
+- more than one code repository is referenced;
+- an exported Jira ticket folder is supplied;
+- a spec/design folder is supplied.
+
+Counting files or bytes is explicitly **not** used — the trigger is the shape
+of the input, which is cheap to detect and easy to explain. A single repo with
+inline/`@file` text only does **not** trigger fan-out; the caller keeps its
+normal single-explorer path.
+
+### 8.2 The fan-out pattern
+
+1. `jira-reader` reads each ticket folder (read-only) → themes, PR references
+   (identifiers only), linked items.
+2. Spec/design folders are read inline and folded into the themes.
+3. `code-scanner` is fanned out **one instance per repository, in a single
+   response, capped at 4 concurrent**. Each instance receives the themes and
+   its own repo path; it returns capabilities, gaps, and relevant files.
+4. The orchestrator synthesizes the `jira-reader` output, all scanner reports,
+   and the spec into one codebase summary that feeds the strong-tier planner.
+
+### 8.3 Model routing inside the fan-out
+
+- `jira-reader` and `code-scanner` are **pinned to the §2.1 detection chain**
+  via the `task` tool `model:` override — the same rule as every other mechanical
+  step (§2.1, §9.1). Scanning is mechanical filesystem work; it must not inherit
+  the session model (a strong-tier session would otherwise burn an expensive
+  model on a cheap step), and its tier must not depend on which model the session
+  happens to run under.
+- Because the trigger floors the task at `SIGNIFICANT` (§1.1), synthesis and
+  planning run on the strongest available reasoning model via `risk-planner`
+  (§2 chain). That is where reasoning power is applied — the mechanical scan
+  that feeds it does not need it.
+- **Optional escalation:** if a single repo slice is itself oversized for the
+  detection tier to comprehend, the orchestrator MAY pin that one `code-scanner`
+  to the strong tier via the `task` tool `model:` override. This is a size-driven,
+  judgment-based exception — not session-driven.
+
+### 8.4 Honesty
+
+A referenced directory that is missing, or is neither a recognized folder type
+nor a git repository, MUST be surfaced to the user — never silently skipped
+(mirrors the `REFRESH_BLOCKED` honesty rule used by the Jira-driven flows).
+
+---
+
+## 9. Per-step routing for multi-phase authoring pipelines
+
+The Jira-driven authoring pipelines (`document:` and `epics:`) run a long
+sequence of phases — some judgment-heavy, some mechanical. They MUST NOT let
+every step inherit the session model. Apply this policy, resolving each model
+against the §2 (strong) and §2.1 (detection) chains.
+
+### 9.1 Principle
+
+- **Judgment-heavy authoring / synthesis** steps run on the §2 strong chain —
+  escalate to the strong tier even when the session is a detection-tier model.
+- **Mechanical detection / throughput / fix** steps run on the §2.1 detection
+  chain — de-escalate off the session model even when the session is strong-tier
+  (otherwise a strong-tier session burns an expensive model on cheap work).
+- **Orchestrator-executed** judgment steps — the inline prose writing and the
+  interactive gates, plus the orchestration itself — run on the session model
+  and CANNOT be overridden from inside a running command. Handle them with an
+  **advisory** (recommend relaunching on the §2 chain), never an override. This
+  advisory applies when the task is SIGNIFICANT/HIGH-RISK; for SIMPLE/MODERATE the
+  writer runs on its detection pin without a relaunch advisory (per §3.1).
+
+### 9.2 Role → chain map
+
+| Role | Chain |
+|------|-------|
+| Synthesis / planner (e.g. `doc-planner`) | §2 strong |
+| Reader / summarizer / locator / style-checker / fixer / maintenance (`jira-reader`, `diff-summarizer`, `doc-location-finder`, `docs-style-checker`, `doc-fixer`, maintenance agents) | §2.1 detection |
+| Domain reviewer (`doc-reviewer`, `epic-reviewer`) | §2 strong — usually already frontmatter-pinned; the orchestrator records it and adds **no** override |
+| Delegated writer (`doc-writer` / `epic-writer`) | §2 strong for SIGNIFICANT/judgment writing; §2.1 detection for MODERATE writing |
+| Coordination + interactive gates (the orchestrator itself) | session model; narrowed-window advisory for large non-strong-tier runs (§9.1) |
+
+### 9.3 No-strong-tier degradation
+
+When no strong-tier peer is available (per §2), run the reasoning / review roles
+on the next available fallback, **skip** the relaunch advisory (there is nothing
+to relaunch onto), and announce the degradation in the `model_routing` record and
+the final report — the same rule as §2.
+
+### 9.4 One rule across commands (`implement:` included)
+
+Routing is by **step nature**, not by pipeline or session: `jira-reader` and
+`code-scanner` are mechanical, so they run on the §2.1 detection chain in
+**every** command — `implement:`'s fan-out (§8.3), `epics:`, and `document:`
+alike. There is no "inherit the session model" for scanning and no per-command
+exception. A step's downstream consumer does not change its tier: a mechanical
+scan that feeds a strong-tier synthesis (e.g. `implement:`'s `risk-planner`) still
+runs on the detection chain — the reasoning power is applied in the synthesis
+step, not the scan. The only carve-out is size-driven, not session-driven:
+escalate a single oversized repo slice's `code-scanner` to the strong tier (§8.3).
