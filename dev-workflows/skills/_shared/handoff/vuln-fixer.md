@@ -7,7 +7,9 @@ The research report from vuln-research for a SINGLE CVE with `status: READY`, pl
 ```markdown
 ## Vuln Fix Request
 repo: /absolute/path/to/repo
-phase: full                        # full (default) | verify-resume — see "Phase" below
+phase: full                        # full (default) | verify-resume | regression-resume — see "Phase" below
+regression_decision: keep-anyway   # keep-anyway | revert — REQUIRED on phase: regression-resume only;
+                                   # omit otherwise. Maps the user's decision from "Handling Test Failures".
 baseline_tests: provided           # "provided" | "run-fresh"
   # If "provided", the orchestrator supplies results below.
   # If "run-fresh", vuln-fixer runs the suite itself first.
@@ -46,12 +48,15 @@ files:
 - `verify-resume` — second-call protocol after Opus review. Skip steps 1–3
   (baseline, fix, build are already done); resume at step 4 (Verify) and
   proceed through commit and PR.
+- `regression-resume` — second-call protocol after the orchestrator asked the
+  user about a `TEST_REGRESSION` return. Skip straight to "Test regression"
+  step 4 and honor `regression_decision` (keep-anyway → commit & PR; revert → revert).
 
 ## Output (vuln-fixer → orchestrator)
 
 ```markdown
 ## Vuln Fix Result: CVE-2023-46604
-status: SUCCESS         # SUCCESS | BUILD_FAILED | TEST_REGRESSION | REVERTED | SKIPPED_BY_USER | AWAITING_REVIEW
+status: SUCCESS         # SUCCESS | BUILD_FAILED | TEST_REGRESSION | REVERTED | SKIPPED_BY_USER | AWAITING_REVIEW | BASELINE_FAILED
 branch: fix/MGD-2423-CVE-2023-46604
 pr_url: https://github.com/org/repo/pull/42
 tests_before: 47
@@ -66,14 +71,37 @@ model_routing:           # echoed back when present in input
 **status values:**
 - `SUCCESS` — fix applied, tests green, PR opened
 - `BUILD_FAILED` — build failed after fix, changes reverted
-- `TEST_REGRESSION` — previously-green tests failed; see `notes` for detail
-- `REVERTED` — user chose to revert
-- `SKIPPED_BY_USER` — user chose to skip
+- `TEST_REGRESSION` — previously-green tests failed and were not auto-fixable;
+  no commit/PR. The orchestrator asks the user (see `vuln:` "Handling Test
+  Failures") and re-invokes this agent with `phase: regression-resume` +
+  `regression_decision`. See the TEST_REGRESSION output shape below.
+- `BASELINE_FAILED` — `test-baseliner` capture returned `RUN_FAILED` or
+  `COMMAND_NOT_FOUND`; the fix was not attempted.
+- `REVERTED` — the `regression-resume` call's `regression_decision` was `revert`
+- `SKIPPED_BY_USER` — user chose to skip (set by the orchestrator; this agent
+  never emits it directly)
 - `AWAITING_REVIEW` — `gate_tests_on_review: true` was set; the fix is
   applied and the build succeeded, but tests have **not** been run, no
   commit was made, and no PR was opened. The orchestrator must perform
   the Opus code review, then re-invoke this agent with
   `phase: verify-resume` to run Verify, Commit, and PR.
+
+### TEST_REGRESSION output shape
+
+Use this exact shape (omit `pr_url` — no PR was opened):
+
+```markdown
+## Vuln Fix Result: CVE-2023-46604
+status: TEST_REGRESSION
+branch: null            # not committed yet
+failing_tests:          # full list of newly-failing (previously-green) tests
+  - com.example.FooTest#testCreate
+diagnosis: "one-line likely cause (e.g. renamed API in the new version)"
+notes: null
+model_routing:
+  classification: SIGNIFICANT
+  gate_tests_on_review: true
+```
 
 ### AWAITING_REVIEW output shape
 

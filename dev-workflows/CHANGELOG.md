@@ -4,7 +4,63 @@ All notable changes to the **dev-workflows** plugin are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow semver at the plugin level.
 
-## [2.0.0] — 2026-07-13
+## [2.0.1] — 2026-07-14
+
+Port of the upstream Claude Code `dev-workflows` **v2.31.0 audit-fix batch** into
+the Copilot edition. The Copilot port was based on Claude v2.30.0 (pre-fix) and had
+inherited the same latent defects. Each finding was cross-checked against the
+Copilot tree and fixed in a GitHub-Copilot-CLI-compatible way. No behavioural
+triggers changed.
+
+### Fixed
+- **`test-baseliner` dual-schema (BLOCKER)** — the agent now emits a top-level
+  `**Status**:` field in both the capture (`## Test Baseline`) and verify
+  (`## Test Verify Report`) blocks, so `vuln-fixer` / `upgrade-executor`
+  status-branching is no longer dead.
+- **Sub-agent `ask_user` misuse** — `vuln-fixer` and `upgrade-executor` no longer
+  claim to prompt the user directly (a sub-agent can't in Copilot CLI). On a test
+  regression they now return `status: TEST_REGRESSION` + diagnosis; the orchestrator
+  asks the user and re-invokes with `phase: regression-resume` + `regression_decision`
+  (mirrors the existing verify-resume handshake). Added the missing "Handling Test
+  Failures" section to `upgrade:`.
+- **`implement:`** — removed stale `general-purpose` + `model: opus` override prose
+  that contradicted the actual dispatch; renamed the mis-labelled "Pre-Phase 2" to
+  "Phase 1.6" (it sits between 1.5 and 1.7).
+- **`document:`** — renumbered Phase 0 steps (were skipping step 2) and fixed all
+  cross-references; repointed dead "Increment 2/3" pointers to concrete phases
+  (4.5 / 5.7 / 5.9).
+- **`epics:`** — swapped the inverted Phase 6.1 (clarifications) / 6.2 (style-check)
+  labels and fixed a residual stale cross-reference.
+- **`upgrade-planner`** — corrected a false "pinned to Opus" claim (it runs on the
+  detection chain).
+- **`doc-writer`** — changelog rule now correctly says "no Jira key"; added `bash`
+  to `tools:` so it can copy local screenshots.
+- **`doc-fixer`** — finding field aligned to the message-based schema (`message`).
+- **`create-ard`** — VI-level `jira-reader` fallback is now a formal `task()` block
+  with `depth`; annotated in the model-routing comment.
+- **`idea`** — carry-forward now includes `source_refs` / `provenance`.
+- **`readiness-reviewer` + `workflow-states`** — `CONCERN` vocabulary unified to `MINOR`.
+- **`api-guideline-reviewer`** — removed a self-contradictory "never use a subset"
+  instruction.
+- **`guideline-reviewer`** — gated the dt-app MCP lookup section on MCP availability
+  (the agent's `tools:` grant no MCP).
+- **Handoff schema drift** — `jira-reader` (`branch_from`/`branch_to`),
+  `impl-maintenance` (Command enum extended to 12: `idea:`, `create-vi:`,
+  `create-ard:`, `ready:`), `release-notes-writer` (`code_repos` input +
+  `jira_phrasing`/`source_phrasing`/`source_location` gap fields), and the
+  `code-scanner` / `diff-summarizer` inline `## Output` sections (now match their
+  handoff SSOTs — `prep:` block, per-PR fields).
+- **Citations** — normalised bare path references to the full
+  `~/.copilot/installed-plugins/…` prefix (`pre-lint.md`,
+  `release-notes-writer` handoff) and broadened the `jira-reader` `NOT_FOUND`
+  description to cover both resolution forms.
+
+### Skipped (not applicable to Copilot)
+- Cost / statusline features (intentionally absent from the Copilot edition).
+- The "Skill in allowed-tools" finding — Copilot reads `model-routing.md` via `view`,
+  not a Skill-tool invocation.
+
+
 
 Major re-sync with the upstream Claude Code `dev-workflows` plugin (v2.30.0),
 which had evolved into a full product-development lifecycle while this Copilot

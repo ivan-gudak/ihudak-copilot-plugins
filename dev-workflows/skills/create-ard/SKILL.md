@@ -50,7 +50,7 @@ model_routing:
   classification: MODERATE | SIGNIFICANT | HIGH-RISK   # architecture; SIGNIFICANT common for cross-repo VIs
   reason: <one-line>
   current_model: <the model this orchestrator/grill is running under>
-  detection_model: <§2.1 detection chain: claude-sonnet-4.6, fallback claude-sonnet-4.5/gpt-5.4>   # code-scanner, impl-maintenance
+  detection_model: <§2.1 detection chain: claude-sonnet-4.6, fallback claude-sonnet-4.5/gpt-5.4>   # jira-reader, code-scanner, impl-maintenance
   review_model:    <§2 Opus chain>     # ard-reviewer (caller-pinned; recorded)
   authoring_model: <= current_model>   # the interactive grill + ARD authoring (session model, not a delegated subagent)
   opus_available: <true if a §2 Opus model resolved, else false>
@@ -62,7 +62,16 @@ model_routing:
 ---
 
 ## Phase 2 — Read the VI (+ Epic, + inherited ARD)
-Read the VI from `$SPECS_PATH/specifications/<VI>-<vslug>/<VI>_ValueIncrement.md` when present (authored source); else dispatch `jira-reader` against `jira_export_root` to read it from the export. For an **Epic-level** run, dispatch `jira-reader` (`depth: full`, scoped to `focus_key`) for the Epic's scope, and if a `<VI>_ARD.md` exists load its `AD-N` invariants to **inherit read-only**.
+Read the VI from `$SPECS_PATH/specifications/<VI>-<vslug>/<VI>_ValueIncrement.md` when present (authored source); else dispatch `jira-reader` to read it from the export:
+
+→ task(agent_type: "dev-workflows:jira-reader", model: `<detection_model — §2.1 detection chain>`):
+  > "Return the structured handoff for this brief:
+  >
+  > jira_export_root: [resolved jira_export_root]
+  > jira_key:         [<VI> for a VI-level run, <EPIC> for an Epic-level run]
+  > depth:            vi-only (VI-level) | full (Epic-level, scoped to focus_key)"
+
+For an **Epic-level** run always dispatch `jira-reader` this way (`depth: full`, scoped to `focus_key`) for the Epic's scope — the authored-VI-file check above only applies VI-level. If a `<VI>_ARD.md` exists load its `AD-N` invariants to **inherit read-only**.
 
 Extract the problem/goal/scope frame + capability themes — the raw material for grounding + the grill.
 

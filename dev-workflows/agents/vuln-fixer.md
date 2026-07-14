@@ -38,7 +38,10 @@ Receive the research report for **one CVE** with `status: READY`.
 
 1. **Baseline** — If `baseline_tests: run-fresh`, invoke `test-baseliner` in `capture` mode.
    If `baseline_tests: provided`, the orchestrator has already captured the baseline — skip this step.
-   On `status: RUN_FAILED` or `COMMAND_NOT_FOUND`: set output `status: BASELINE_FAILED`, return.
+   - On `status: RUN_FAILED` or `COMMAND_NOT_FOUND`: set output `status: BASELINE_FAILED`, return.
+   - On `status: NO_TESTS`: the project has no runnable test suite. Proceed with the fix
+     (steps 2-3), then **skip step 4 (Verify) entirely** — there is nothing to diff against —
+     and go straight to step 5, noting in the output that no test suite was found.
 
 2. **Apply fix** — Update the version pin(s) listed in the research report's `files` array.
    Use the ecosystem-appropriate update command (see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/fix-vuln/build-systems.md`).
@@ -62,14 +65,20 @@ Receive the research report for **one CVE** with `status: READY`.
 
 ## Test regression
 
+Sub-agents dispatched via the `task` tool run in a separate context and have no access to
+interactive tools — `ask_user` is unavailable even if granted, so this agent can never ask
+the user directly. The orchestrator owns that decision.
+
 1. Inspect failures — are they caused by the version bump (API change, renamed class)?
-2. If fixable automatically (import rename, trivial API migration): fix and note in output.
-3. If not fixable: ask the user via `ask_user`:
-   > "These tests were passing before the fix. Would you like me to:"
-   - "Apply the fix anyway and flag the failures in the PR (Recommended if tests are flaky)"
-   - "Revert this fix and skip it"
-   - "Investigate further"
-4. Honor the choice. Record outcome in the output record.
+2. If fixable automatically (import rename, trivial API migration): fix and note in output, then proceed to step 5 (Commit & PR).
+3. If not fixable: **stop here.** Return `status: TEST_REGRESSION` with the full list of
+   newly-failing tests and a one-line diagnosis of the likely cause. Do NOT commit or open
+   a PR. The orchestrator asks the user (see `vuln:` "Handling Test Failures") and
+   re-invokes this agent with `phase: regression-resume` + `regression_decision`.
+4. **On `phase: regression-resume`:** honor `regression_decision`:
+   - `keep-anyway` → proceed to step 5 (Commit & PR), flagging the failures in the PR body.
+   - `revert` → revert the fix, set `status: REVERTED`, return.
+   Record the outcome in the output record.
 
 ## Invariants
 

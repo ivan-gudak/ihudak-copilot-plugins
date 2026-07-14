@@ -164,7 +164,7 @@ Then choose the branch:
 
 ---
 
-## Pre-Phase 2 — Input scale assessment
+## Phase 1.6 — Input scale assessment
 
 From the Phase 0 classification, compute:
 - `repo_count` = number of code repos (cwd + referenced git-repo dirs)
@@ -180,7 +180,7 @@ Set `fan_out = (repo_count > 1) OR has_ticket_folder OR has_spec_folder`.
 
 ## Phase 1.7 — Multi-source exploration (only when `fan_out = true`)
 
-Runs after Pre-Phase 2 and replaces the single Phase 2B exploration subagent for multi-source input. Follows `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/model-routing.md` §8.
+Runs after Phase 1.6 and replaces the single Phase 2B exploration subagent for multi-source input. Follows `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/model-routing.md` §8.
 
 1. **Read Jira ticket folders.** For each Jira ticket folder, invoke `jira-reader` (read-only):
 
@@ -263,16 +263,13 @@ choices: ["Approve & implement now (Recommended)", "Revise plan", "Cancel"]
 
 **Codebase exploration** — If Phase 1.7 ran (`fan_out = true`), use its **multi-source codebase summary** as the codebase context and skip the single Explore subagent. Otherwise, run the same exploration subagent call as Phase 2A (same prompt, same fallback rule).
 
-Once the file map is returned, delegate planning to Opus. Invoke via
-`general-purpose` with an explicit `model: "opus"` override and a "read the
-system prompt from file" instruction — this routing is independent of whether
-user-level agent auto-discovery is active in the current session.
+Once the file map is returned, delegate planning to Opus.
 
 → task(agent_type: "dev-workflows:risk-planner"):  # planning_model — §2 Opus chain; frontmatter-pinned, recorded in model_routing, no override added
   > "Produce the risk-weighted plan for the following brief:
   >
   > Task description: [substitute full description]
-  > Classification: [SIGNIFICANT | HIGH-RISK] — reason: [the criterion from Phase 1.5, or the multi-source floor from Pre-Phase 2 when fan_out]
+  > Classification: [SIGNIFICANT | HIGH-RISK] — reason: [the criterion from Phase 1.5, or the multi-source floor from Phase 1.6 when fan_out]
   > Codebase summary: [paste the Phase 1.7 multi-source summary if fan_out, else the Explore agent's output]
   > Constraints: [any from clarification, plus runtime/version/deadline known]
   > Current state: branch = [git branch], uncommitted = [git status --short summary]"
@@ -282,7 +279,7 @@ user-level agent auto-discovery is active in the current session.
 1. A full plan in the risk-weighted format (the normal case).
 2. A short `### Re-classification` section, if the planner decided on inspection that the task is actually `SIMPLE` or `MODERATE`.
 
-**If the return contains `### Re-classification`:** surface it to the user, ask for confirmation of the revised level with a `choices` prompt (`["Accept revised classification (Recommended)", "Override and stay SIGNIFICANT/HIGH-RISK", "Cancel"]`). If the user accepts, **fall back to Phase 2A** (standard plan) using the codebase context already captured above — the Phase 1.7 **multi-source codebase summary** when `fan_out = true`, otherwise the Explore summary — and do not re-run exploration. Accepting here is the user exercising the **plan-approval override** of the multi-source SIGNIFICANT floor (Pre-Phase 2); that is the sanctioned way to leave the fan_out floor. If the user overrides, re-invoke risk-planner with an additional constraint stating the classification is intentional; do not down-classify again. If the user cancels, stop and summarize.
+**If the return contains `### Re-classification`:** surface it to the user, ask for confirmation of the revised level with a `choices` prompt (`["Accept revised classification (Recommended)", "Override and stay SIGNIFICANT/HIGH-RISK", "Cancel"]`). If the user accepts, **fall back to Phase 2A** (standard plan) using the codebase context already captured above — the Phase 1.7 **multi-source codebase summary** when `fan_out = true`, otherwise the Explore summary — and do not re-run exploration. Accepting here is the user exercising the **plan-approval override** of the multi-source SIGNIFICANT floor (Phase 1.6); that is the sanctioned way to leave the fan_out floor. If the user overrides, re-invoke risk-planner with an additional constraint stating the classification is intentional; do not down-classify again. If the user cancels, stop and summarize.
 
 **If the return is a full plan:** present it to the user verbatim and ask:
 
@@ -435,9 +432,7 @@ At each checkpoint, also consider suggesting **`/compact`** to free context befo
    Record the choice. A "Skip" decision must be explicit and logged in the Phase 5 report.
 
 5. After all changes are written: **DO NOT run tests yet.** Capture the diff and the project root. Use `git add -N . && git diff` — this includes intent-to-add untracked new files so the diff is never empty for implementations that only create new files, and it now also includes the test files from step 4a. Also capture `git diff --stat` for the summary.
-6. **Opus code review** — spawn. As with Phase 2B, invoke `general-purpose` with
-   an explicit `model: "opus"` override and a "read the system prompt from file"
-   instruction so the routing works independently of agent auto-discovery.
+6. **Opus code review** — spawn.
 
    → task(agent_type: "dev-workflows:code-review"):  # review_model — §2 Opus chain; frontmatter-pinned, recorded in model_routing, no override added
      > "Produce the Opus code review for this brief:

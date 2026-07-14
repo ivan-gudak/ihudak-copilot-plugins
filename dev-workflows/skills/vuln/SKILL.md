@@ -108,6 +108,10 @@ task(
 )
 ```
 
+If the fixer returns `status: TEST_REGRESSION`, follow "Handling Test Failures" below, then
+re-invoke `vuln-fixer` with `phase: regression-resume` + the chosen `regression_decision`,
+passing the same CVE input verbatim.
+
 ### SIGNIFICANT / HIGH-RISK path
 
 1. **Capture baseline at the orchestrator** using the existing `test-baseliner` agent. Keep the full baseline block (`passing_count` and `passing_tests`).
@@ -150,6 +154,11 @@ task(
 
 4. **Resume the fixer after review** — Re-invoke `vuln-fixer` with `phase: verify-resume`, the same baseline block, and the original research report re-supplied verbatim.
 
+5. **If the fixer returns `status: TEST_REGRESSION`** (from step 4's resumed verify), follow
+   "Handling Test Failures" below, then re-invoke `vuln-fixer` with `phase: regression-resume` +
+   the chosen `regression_decision`, the same baseline block, and the original research report
+   re-supplied verbatim.
+
 ---
 
 ## Step 4 — Summarise
@@ -165,7 +174,7 @@ After all CVEs are processed, print a result table:
 
 Append a `### Model Routing` section summarising the per-CVE classification, why it was chosen, the models used, and any Opus review verdicts.
 
-Then invoke `impl-maintenance` with a compact session handoff covering the CVEs fixed, notable regressions, workarounds, and overall outcome.
+Then invoke `impl-maintenance` with a compact session handoff covering the CVEs fixed, notable regressions, workarounds, and overall outcome. **Always pass `Command run: vuln:`** in that handoff — omitting it makes `impl-maintenance` default to `implement:`, mislabeling the run.
 
 **Context hygiene.** This was a large run — consider **`/compact`** to free context before your next task (per `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/session-hygiene.md` §3 — non-pipeline, so `/compact` only; guidance only).
 
@@ -175,14 +184,21 @@ Then invoke `impl-maintenance` with a compact session handoff covering the CVEs 
 
 ## Handling Test Failures
 
-If the fix causes previously-green tests to fail and a quick investigation does not reveal an obvious fix:
+`vuln-fixer` cannot prompt the user directly — sub-agents dispatched via the `task` tool run
+in a separate context and have no access to interactive tools, even when one is listed in their
+`tools:`. When it returns `status: TEST_REGRESSION` (previously-green tests now failing, not
+auto-fixable), the **orchestrator** (this skill, running in the interactive session) handles the
+decision:
 
-- Present the failing tests clearly.
-- Ask the user whether to:
-  1. apply the fix anyway and flag the failures in the PR description,
-  2. revert the fix, or
-  3. investigate further.
-- Honor the user's choice.
+- Present the failing tests clearly (from the fixer's `failing_tests` / `diagnosis`).
+- Ask via `ask_user`:
+  ```
+  choices: ["Apply the fix anyway and flag the failures in the PR (Recommended if tests are flaky)", "Revert this fix and skip it", "Investigate further"]
+  ```
+- **"Investigate further"** → show more detail (the diff, full failure output) and re-ask
+  the same choices — this loops here at the orchestrator until the user picks apply or revert.
+- Map the final choice to `regression_decision: keep-anyway | revert` and re-invoke
+  `vuln-fixer` with `phase: regression-resume` (see Step 3).
 
 ---
 

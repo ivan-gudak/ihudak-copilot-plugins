@@ -10,7 +10,7 @@ Review OpenAPI specification files for compliance with Dynatrace REST API and IA
 
 ## Before Starting
 
-Load ALL guideline files before reviewing — never use a subset. All paths relative to `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared`:
+Load every guideline file listed below before reviewing — never skip one of these. All paths relative to `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared`:
 
 **REST API Guidelines** (`api-guidelines/rest-api-guidelines/`):
 - `Introduction.md` — RFC 2119 keywords (MUST/SHOULD/MAY)

@@ -84,7 +84,8 @@ Wait for the digest. If `status: NOT_FOUND` (invalid RFE key / missing file), su
 choices: ["Re-enter the source", "Cancel", "Other… (describe)"]
 ```
 This is an environment/user halt — do NOT `emit-block`. On `OK`, carry forward `raw_context`,
-`signals`, `images`, `candidate_title`, `candidate_slug`, and the followed/broken wikilinks.
+`signals`, `images`, `candidate_title`, `candidate_slug`, `source_refs`, `provenance`, and the
+followed/broken wikilinks — `source_refs`/`provenance` feed the `sources:` frontmatter entry in Phase 4.
 
 ---
 

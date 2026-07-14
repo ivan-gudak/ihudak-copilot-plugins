@@ -68,7 +68,8 @@ pull_requests:
     status:       MERGED | OPEN | DECLINED | UNKNOWN
     title:        <link text from markdown>
     source_item:  <Jira key of the file where the URL was found>
-    also_in:      [<other Jira keys that reference this same PR>]  # may be empty list
+    branch_from:  <feature branch, from Branch: line>
+    branch_to:    <target branch, from Branch: line>
 
 themes:
   - <short phrase, 5–10 words, summarising a recurring capability topic>
@@ -89,4 +90,4 @@ notes: |
 |------------|-------------------------------------------------------------------------|
 | `OK`       | Successfully read; `linked_items` and `pull_requests` populated.        |
 | `EMPTY`    | Directory found but index file is missing or empty.                     |
-| `NOT_FOUND`| `<vault_path>/jira-products/<jira_key>/` does not exist.                |
+| `NOT_FOUND`| The resolved export root does not exist — `<vault_path>/jira-products/<jira_key>/` (Form 2), or the caller-supplied `jira_export_root` (Form 1). |

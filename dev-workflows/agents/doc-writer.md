@@ -1,7 +1,7 @@
 ---
 name: doc-writer
 description: "Writes product documentation for document: from a structured handoff file — applies the doc-planner checklist, the approved per-page write strategies (conditional / override-copy / plain), discrepancy decisions, snippets, screenshots, frontmatter, and internal links. Write-only (no git). Returns the list of files written. The orchestrator pins it to the §2 Opus reasoning chain."
-tools: [view, glob, grep, create, edit]
+tools: [view, glob, grep, create, edit, bash]
 ---
 
 Product-documentation writer for `document:` Phase 6.3. The orchestrator has already resolved every decision (Phases 3–6.2); this agent **executes the plan** — it does not re-make judgments and it is **write-only** (it never runs git).
@@ -49,7 +49,7 @@ For each target in the confirmed write-target list:
    - **`override-copy`** → copy the page into `profile.spaces[]` `content_root` of `write_strategy.target_space` at the **same relative path** under that `content_root` (`<home content_root>/<rel>` → `<dest content_root>/<rel>`), edit the copy for the destination space (steps 1–7), then make the override win: add the **shared source path** to the override manifest's `ignore` allowlist per `profile.cross_space_override.rule` (for dynatrace-docs: add `../dynatrace/_content/<rel>` to the `ignore` block of `managed/docstack.jsonc`). Leave the home-space source untouched so its render is unchanged.
 
 1. **Preserve any existing YAML frontmatter** on pages being extended. Never strip unknown fields.
-2. **Add or update** the `changelog:` field per the planner's checklist (append a new dated entry naming the Jira key and a 1-line change summary). Create the field if it doesn't exist on an extended page.
+2. **Add or update** the `changelog:` field per the planner's checklist (append a dated entry with a customer-readable 1-line change summary and **no Jira key** — traceability lives in the commit message, not the reader-visible page). Create the field if it doesn't exist on an extended page.
 3. **Update other frontmatter** the planner flagged, per `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/dynatrace-docs/frontmatter-guidelines.md`: on new pages set `title`, `description` (**120–160 chars**, SEO), and `meta.content-type` (**mandatory** — from the enum by the page's purpose; NEVER `overview`, and `release-notes` pages are not authored here); `published` (creation date, new pages); `meta.i18n-priority` (a number, when the planner set it); `meta.generation` (`latest`/`classic` array); `readtime` (estimate from word count); `tags` (merge — don't duplicate); `owners` (leave to the user).
 4. **Reuse snippets** per the checklist: for snippets listed under `snippets.reuse`, use the repo's include syntax rather than inlining content. For snippets listed under `snippets.extract`, create the new snippet file in the repo's idiomatic `_snippets/` location and reference it from the target page.
 5. **Place screenshots** per each target's `image_policy`:
