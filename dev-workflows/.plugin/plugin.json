@@ -1,7 +1,7 @@
 {
   "name": "dev-workflows",
   "description": "Full product-development lifecycle workflow skills for GitHub Copilot CLI: idea → create-vi → create-ard → specify → design → epics → implement → document → release-notes → ready, plus vuln (CVE remediation), upgrade (dependency upgrades), api-guideline-reviewer, guideline-reviewer, docs-profile, feedback, and prompt utilities. Strong-tier model routing (Opus 4.8/4.7/4.6 or GPT-5.5), branch management, dispatched Opus/GPT-5.5 review sub-agents, and automated maintenance. 19 user-facing skills + 30 sub-agents.",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "author": {
     "name": "Ivan Gudak",
     "url": "https://github.com/ihudak"
