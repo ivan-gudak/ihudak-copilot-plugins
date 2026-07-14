@@ -22,7 +22,7 @@ existing wiki pages and data files are never overwritten.
 ## Step 1 — Resolve VAULT_PATH
 
 ```bash
-VAULT="${VAULT_PATH:-${HOME}/obsidian_vault}"
+VAULT="${VAULT_PATH:-${VAULT:-${HOME}/obsidian_vault}}"
 [ -d "${VAULT}" ] || { echo "ERROR: vault not found at ${VAULT}. Set VAULT_PATH to your vault location."; exit 1; }
 echo "Vault: ${VAULT}"
 ```

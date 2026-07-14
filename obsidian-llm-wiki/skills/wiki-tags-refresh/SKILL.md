@@ -37,11 +37,17 @@ Read `.obsidian/copilot/tag-index.md` fully. Extract every documented tag (lines
 
 ## Step 3 — Collect tags from pages
 
-Scan every `.md` file under the vault root (`$VAULT`) by default (excludes `.obsidian/`), or limit to a specific directory by running `/wiki-tags-refresh [directory]`.
-
-The frontmatter extraction (YAML multi-line) across the vault:
+Resolve the scan root:
 ```bash
-find "${VAULT_PATH:-${VAULT:-${HOME}/obsidian_vault}}" -name "*.md" -not -path "*/.obsidian/*" | xargs awk '
+SCAN_ROOT="${VAULT_PATH:-${VAULT:-${HOME}/obsidian_vault}}"
+```
+If `/wiki-tags-refresh` was invoked with a directory argument, append it instead: scan
+every `.md` file under the vault root by default (excludes `.obsidian/`), or under
+`"${SCAN_ROOT}/<directory>"` if a directory argument was given.
+
+The frontmatter extraction (YAML multi-line) across `$SCAN_ROOT`:
+```bash
+find "$SCAN_ROOT" -name "*.md" -not -path "*/.obsidian/*" -print0 | xargs -0 awk '
   FNR==1{front=0; intags=0}
   /^---/{if(front==0) front=1; else front=0; next}
   !front{next}
@@ -51,14 +57,25 @@ find "${VAULT_PATH:-${VAULT:-${HOME}/obsidian_vault}}" -name "*.md" -not -path "
 ' | sort -u
 ```
 
+> Note: only the YAML multi-line block form (`tags:` followed by `  - tagname` lines) is
+> parsed; inline arrays (`tags: [a, b]`) are silently skipped by this script. Worth knowing
+> now that the scan covers the whole vault, where inline-array frontmatter is common outside
+> plugin-authored wiki pages.
+
 Also collect inline tags from page bodies across the same scope:
 ```bash
-grep -roh "#[a-zA-Z][a-zA-Z0-9/_-]*" "${VAULT_PATH:-${VAULT:-${HOME}/obsidian_vault}}" --exclude-dir=".obsidian" | grep -v "^#" | sort -u
+grep -roh "#[a-zA-Z][a-zA-Z0-9/_-]*" "$SCAN_ROOT" --exclude-dir=".obsidian" | sort -u
 ```
 
-Exclude false positives: markdown headings at line start (`^#`), code blocks, URLs.
+Exclude false positives by inspecting each match's source line: the tag pattern already
+requires a letter immediately after `#`, so standard `# Heading` / `## Heading` lines never
+match it. The main residual false-positive source is URL fragments (e.g. `page.md#Section`)
+and code blocks — use judgment when presenting candidates in Step 6.
 
 Deduplicate the full collected set.
+
+This walks the vault tree twice (once for frontmatter, once for inline tags); on a large
+vault expect it to take longer than the previous `wiki/`-only scan.
 
 ---
 
@@ -76,7 +93,7 @@ Deduplicate the full collected set.
 wiki-tags-refresh results
 ─────────────────────────
 New (undocumented in tag-index.md):   #newtag  #anothertag
-Stale (0 uses in wiki pages):         #oldtag  #unusedtag
+Stale (0 uses in scanned pages):      #oldtag  #unusedtag
 Already in sync:                      N tags
 ```
 
@@ -100,10 +117,11 @@ Present the stale list and ask:
 - `"Review one by one"` — step through each with keep/remove choice
 - `"Keep all (ignore)"` — leave index unchanged for these
 
-Note: stale means zero uses in `wiki/` only. The tag may be used elsewhere
-in the vault (tasks, project files). Confirm zero vault-wide use before suggesting removal:
+Note: Step 3's scan may have been directory-scoped (if a directory argument was given to
+`/wiki-tags-refresh`), so a "stale" candidate might still be in use elsewhere in the vault.
+Confirm zero vault-wide use before suggesting removal, regardless of scan scope:
 ```bash
-grep -r "#tagname" "${VAULT}" --include="*.md" | grep -v "wiki/" | wc -l
+grep -r "#tagname" "${VAULT_PATH:-${VAULT:-${HOME}/obsidian_vault}}" --include="*.md" | grep -v "wiki/" | wc -l
 ```
 If vault-wide count > 0, flag as "used outside wiki — keep?" rather than suggesting removal.
 

@@ -8,6 +8,22 @@ All paths below are relative to the vault root (`$VAULT`).
 
 ---
 
+## Resolving the Vault Root
+
+Canonical fallback pattern, used by every skill and hook that needs `$VAULT`:
+```bash
+VAULT="${VAULT_PATH:-${VAULT:-${HOME}/obsidian_vault}}"
+```
+`VAULT_PATH` takes precedence; `VAULT` is accepted as an alias; `~/obsidian_vault` is the
+default. WSL users with a Windows-side vault must set `VAULT_PATH` explicitly (e.g.
+`/mnt/c/Users/<name>/obsidian_vault`).
+
+Each SKILL.md bash block may run as a fresh shell invocation, so re-derive this expression
+in every block that needs it rather than assuming a `VAULT=` assignment from an earlier
+step is still in scope.
+
+---
+
 ## Directory Layout
 
 ```
