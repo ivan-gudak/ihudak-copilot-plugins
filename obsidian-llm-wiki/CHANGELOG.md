@@ -4,6 +4,22 @@ All notable changes to the **obsidian-llm-wiki** plugin are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow semver at the plugin level.
 
+## [0.3.3]
+
+### Fixed
+- **wiki-tags-refresh grep flag ordering**: flags were placed after the pattern/path
+  operands, which GNU grep tolerates but strict/BSD grep (default on macOS) doesn't
+  reliably. Flags now precede operands. Found via cross-repo review with the sibling
+  `ihudak-claude-plugins` port of this same feature.
+- **wiki-tags-refresh stale-tag check used an unanchored substring match**: `grep
+  "#tagname"` falsely matched longer tags like `#tagname-extended` or `#tagname/nested`.
+  Now extracts exact tag tokens and matches with `grep -xF`.
+- **wiki-tags-refresh stale-tag check always counted a tag as "used"**: the vault-wide
+  recheck never excluded `tag-index.md` itself, and every documented tag's own entry in
+  that file matched the search, making the "confirm zero vault-wide use" check
+  meaningless for every tag. Now excludes only `tag-index.md` (not all of `.obsidian/`,
+  so genuine uses elsewhere in `.obsidian/` still protect a tag from removal).
+
 ## [0.3.2]
 
 ### Changed

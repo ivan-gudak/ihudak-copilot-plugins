@@ -64,7 +64,7 @@ find "$SCAN_ROOT" -name "*.md" -not -path "*/.obsidian/*" -print0 | xargs -0 awk
 
 Also collect inline tags from page bodies across the same scope:
 ```bash
-grep -roh "#[a-zA-Z][a-zA-Z0-9/_-]*" "$SCAN_ROOT" --exclude-dir=".obsidian" | sort -u
+grep -roh --exclude-dir=".obsidian" "#[a-zA-Z][a-zA-Z0-9/_-]*" "$SCAN_ROOT" | sort -u
 ```
 
 Exclude false positives by inspecting each match's source line: the tag pattern already
@@ -119,11 +119,17 @@ Present the stale list and ask:
 
 Note: Step 3's scan may have been directory-scoped (if a directory argument was given to
 `/wiki-tags-refresh`), so a "stale" candidate might still be in use elsewhere in the vault.
-Confirm zero vault-wide use before suggesting removal, regardless of scan scope:
+Always confirm zero vault-wide use before suggesting removal, using an exact tag match — a
+substring match like `grep "#tagname"` would false-match `#tagname-extended` or
+`#tagname/nested` — and excluding only `tag-index.md` itself: every documented tag appears
+in `tag-index.md` by definition, so excluding it (not the whole `.obsidian/` directory)
+avoids a false "always used" result while still letting genuine uses elsewhere in
+`.obsidian/` (e.g. custom prompts) protect a tag from removal:
 ```bash
-grep -r "#tagname" "${VAULT_PATH:-${VAULT:-${HOME}/obsidian_vault}}" --include="*.md" | grep -v "wiki/" | wc -l
+grep -roh --include="*.md" --exclude="tag-index.md" "#[a-zA-Z][a-zA-Z0-9/_-]*" "${VAULT_PATH:-${VAULT:-${HOME}/obsidian_vault}}" \
+  | grep -xF "#tagname" | wc -l
 ```
-If vault-wide count > 0, flag as "used outside wiki — keep?" rather than suggesting removal.
+If vault-wide count > 0, flag as "used elsewhere in the vault — keep?" rather than suggesting removal.
 
 ---
 
