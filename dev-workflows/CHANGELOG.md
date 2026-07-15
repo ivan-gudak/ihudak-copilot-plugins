@@ -4,6 +4,15 @@ All notable changes to the **dev-workflows** plugin are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow semver at the plugin level.
 
+## [2.1.1] — 2026-07-15
+
+### Changed
+- **README overhaul, brought up to the Claude Code edition's documentation depth (docs-only).** Added a `## Workflow overview` section (mermaid PM/PA/PE/Dev/QA role-graph of the `idea:` → `create-vi:` → `create-ard:` → `epics:`/`specify:` → `design:` → `implement:` → `document:` → `release-notes:` pipeline, an annotation table, a "Sources of truth & artifact homes" note, and a "Cross-cutting skills" subsection) and an `implement: workflow` phase-flow mermaid diagram, both adapted to this edition's keyword-trigger skill names, strong-tier (Opus/GPT-5.5) model set, and `task()` dispatch — with no cost/statusline nodes, since those are not ported. Expanded the grouped sub-agent name list into a full 30-row `| Agent | Model | Description |` table, correcting the model column to reflect this edition's reality: sub-agents have no `model:` frontmatter pin — the strong tier is passed by the caller at each `task()` call site. Added a `## Reference docs` catalog of the 38 `skills/_shared/*.md` files, an `## Architecture (ARD) consumption` section, a `## Dependencies & companions` section, a trimmed `## Session feedback` section (no session-cost), and expanded `## Hooks` into a table (4 hooks, including the previously-undocumented `test-notify`).
+- Root `README.md` — added a `## Prerequisites` section, an environment-variable configuration step (`VAULT_PATH` / `SPECS_PATH` / `REPOS_PATH`, confirmed load-bearing across `skills/_shared/*.md` but previously undocumented at the marketplace level), and a `## Runtime directories` section, mirroring the sibling `ihudak-claude-plugins` marketplace's root README.
+
+### Fixed
+- **Root `README.md` Plugins table described the retired `/impl` / `/fix-vuln` taxonomy (docs-only).** The `dev-workflows` row still read "`/impl` for feature implementation, `/fix-vuln` for CVE remediation, `/upgrade` for dependency upgrades" — the pre-1.4.0 command surface, not the current 19-skill lifecycle. Replaced with an accurate summary; also refreshed the stale `skills/impl/`, `fix-vuln/` example paths in the "Repository structure" tree.
+
 ## [2.1.0] — 2026-07-14
 
 ### Changed
