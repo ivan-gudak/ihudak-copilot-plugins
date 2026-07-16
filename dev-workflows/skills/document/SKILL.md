@@ -1,14 +1,14 @@
 ---
 name: document
 description: >
-  Jira-driven feature-documentation workflow. Phase 0 preflight-discovers the docs repo + profile (in-repo → built-in dynatrace-docs default → on-demand docs-profile:) and the VI's specs dir under /workspace. Phase 4.5 determines/confirms the applicable space(s). Optional saas|managed constraint scopes the run to one space. Reads a Value Increment hierarchy from exported markdown, resolves PR diffs in parallel, synthesises product documentation, and gates on style-check and Opus doc review.
+  Jira-driven feature-documentation workflow. Phase 0 preflight-discovers the docs repo + profile (in-repo → built-in dynatrace-docs default → on-demand docs-profile:) and the VI's specs dir under /workspace. Phase 4.5 determines/confirms the applicable space(s). Optional saas|managed constraint scopes the run to one space. Reads a Value Increment hierarchy from exported markdown, resolves PR diffs in parallel, synthesises product documentation, and gates on style-check and Opus doc review. Optional --counterpart <JiraID|PR-url> grounds a space-constrained run on the other space's existing docs (read-only).
   Activated when the user prompt starts with "document:".
 allowed-tools: view, edit, create, bash, glob, grep, task, web_fetch, ask_user
 ---
 
 Generate product documentation for the Jira Value Increment: the argument (text following the `document:` trigger)
 
-Signature: `PRODUCT-NNNN [saas|managed]`. The optional second token is a **space constraint**, not a target list. When you pass `saas` or `managed`, the command documents **only that space** and leaves the OTHER space's rendered output unchanged (SaaS pages stay as they are when you pass `managed`, and vice-versa). When you omit it, the command **determines the applicable space(s)** from the Jira hierarchy and the resolved repos, then confirms with you. `both` is intentionally NOT an accepted value — omit the argument to cover both spaces.
+Signature: `PRODUCT-NNNN [saas|managed] [--counterpart <JiraID|PR-url>]`. The optional second token is a **space constraint**, not a target list. When you pass `saas` or `managed`, the command documents **only that space** and leaves the OTHER space's rendered output unchanged (SaaS pages stay as they are when you pass `managed`, and vice-versa). When you omit it, the command **determines the applicable space(s)** from the Jira hierarchy and the resolved repos, then confirms with you. `both` is intentionally NOT an accepted value — omit the argument to cover both spaces. `--counterpart <JiraID | PR-url>` is an optional named flag (valid only on a space-constrained run) that points at the OTHER space's documentation for this feature — a Jira key or a PR URL (merged or not). It is used as **read-only grounding**; on a both-space run it is rejected. See Phase 5.6.5.
 
 `document:` (Jira mode) is the **Jira-driven feature-documentation** workflow. Given a Jira Value Increment key, it reads the full Jira hierarchy from pre-exported markdown in the user's Obsidian vault, resolves PR URLs to local git repos, runs parallel PR-diff summaries, synthesises product documentation, runs style-check + Opus review gates, and writes the output to the current working directory (a product docs repository).
 
@@ -92,7 +92,7 @@ Echo the detected mode, then proceed to that mode's phases. The two modes share 
 
    Record the resolved context — it drives Phase 6.2 (branch setup) and Phase 6.3 write rules. When `docs_repo_path` differs from cwd, record **both** and note that the writing phases (Increments 2–3) consume `docs_repo_path`, not cwd, for every write.
 
-7. **Parse the optional space constraint.** Read `the argument (text following the `document:` trigger)` as `<JIRA_KEY> [space]` — the same `the argument (text following the `document:` trigger)` already split for `<JIRA_KEY>` in step 1; the optional second whitespace-separated token is the space constraint.
+7. **Parse the optional space constraint.** Read `the argument (text following the `document:` trigger)` as `<JIRA_KEY> [space]` — the same `the argument (text following the `document:` trigger)` already split for `<JIRA_KEY>` in step 1. **First set aside any `--counterpart <value>` flag pair** (parsed in step 8) so it is never mistaken for the space token; the space constraint is then the first remaining whitespace-separated token after `<JIRA_KEY>` (if any).
    - **No second token** → `space_constraint = none`. Phase 4.5 will determine and confirm the applicable space(s).
    - **Second token is `saas` or `managed`** (case-insensitive) → `space_constraint = <space>`. This is a deliberate scoping decision by the user, so Phase 4.5 skips its determination step and records `target_spaces = [space_constraint]` directly.
    - **Second token present but not `saas`/`managed`** (e.g. `both`, a typo, or extra free text) → do NOT silently guess. Reject it and ask:
@@ -101,6 +101,22 @@ Echo the detected mode, then proceed to that mode's phases. The two modes share 
      choices: ["Drop the constraint — auto-determine (Recommended)", "saas", "managed", "Cancel"]
      ```
      "Drop the constraint" → `space_constraint = none`. "saas"/"managed" → `space_constraint = <choice>`. "Cancel" → stop.
+
+8. **Parse the optional `--counterpart` flag.** Scan `the argument (text following the `document:` trigger)` for a `--counterpart <value>` token (named flag; `<value>` is the next whitespace-separated token, a Jira key `^[A-Z][A-Z0-9]+-[0-9]+` or a URL). Record `counterpart_ref = <value>` (default `null` when absent).
+   - **`--counterpart` present but `space_constraint == none`** (both-space run) → do NOT silently accept. Ask:
+     ```
+     "--counterpart grounds a single documented space on the OTHER space, so it needs a space constraint (saas|managed). This run covers both spaces. How would you like to proceed?"
+     choices: ["Drop --counterpart — cover both spaces (Recommended)", "Constrain to saas", "Constrain to managed", "Cancel"]
+     ```
+     "Drop" → `counterpart_ref = null`. "Constrain to saas/managed" → set `space_constraint` accordingly and keep `counterpart_ref`. "Cancel" → stop.
+   - **`--counterpart` value malformed** (not a Jira key or URL) → do NOT guess. Ask:
+     ```
+     "'<value>' isn't a valid --counterpart target. It should be a Jira key (e.g. PROJ-1234) or a PR URL. How would you like to proceed?"
+     choices: ["Re-enter a valid Jira key / PR URL", "Drop --counterpart (Recommended)", "Cancel"]
+     ```
+     "Re-enter" → take the new value. "Drop" → `counterpart_ref = null`. "Cancel" → stop.
+
+   When both the both-space-run rejection and a malformed value apply, resolve the both-space rejection first, then re-validate any value the user keeps.
 
 ### Readiness
 
@@ -191,7 +207,7 @@ model_routing:
   notes: <any §2 / §2.1 fallback or degradation>
 ```
 
-Each subagent dispatch below cites which chain it uses (the §9 role→chain map): `doc-planner` → `planning_model`; `jira-reader`, `diff-summarizer`, `doc-location-finder`, `docs-style-checker`, `doc-fixer`, and the Phase 8 maintenance agents → `detection_model`; `doc-reviewer` keeps its own frontmatter Opus pin (recorded as `review_model`, no override added).
+Each subagent dispatch below cites which chain it uses (the §9 role→chain map): `doc-planner` → `planning_model`; `jira-reader`, `diff-summarizer`, `doc-location-finder`, `counterpart-finder`, `docs-style-checker`, `doc-fixer`, and the Phase 8 maintenance agents → `detection_model`; `doc-reviewer` keeps its own frontmatter Opus pin (recorded as `review_model`, no override added).
 
 **Orchestration advisory (window-focused).** `doc-planner` (5.7) and `doc-writer` (6.3) run on the §2 Opus chain regardless of session; only coordination + the interactive gates (4.5, 5.8 decision, 5.9, 6.1) run on `current_model`. So:
 
@@ -430,6 +446,49 @@ The selected paths populate the existing **`screenshots[]`** passed to `doc-plan
 
 ---
 
+## Phase 5.6.5 — Counterpart-space reference discovery
+
+**Run only when `target_spaces` is a single space** (`[saas]` or `[managed]`). A run that already covers both spaces has no "other" space → skip entirely and carry `counterpart_references = []`. (A `--counterpart` on a both-space run was already resolved in Phase 0.)
+
+The **counterpart space** is the one space in `profile.spaces[]` not in `target_spaces`. Discover its existing documentation for this feature and carry it forward as **read-only grounding** — concepts, terminology, facts, section structure, and comprehension-only screenshots. It is never copied into the target doc and never an image source (Phase 5.6 remains the only image source).
+
+Invoke `counterpart-finder`:
+
+→ task(agent_type: "dev-workflows:counterpart-finder", model: `<detection_model — §9 / §2.1 detection chain>`):
+  > "Discover counterpart-space grounding:
+  >
+  > repo_root:          [docs_repo_path]
+  > target_space:       [the single member of target_spaces]
+  > counterpart_space:  [the profile.spaces[] space not in target_spaces]
+  > profile:            [Phase 0 profile]
+  > feature_summary:    [2–4 sentences from the jira-reader themes + VI goal]
+  > jira_key:           [<JIRA_KEY> (focus_key when set)]
+  > counterpart_ref:    [the --counterpart value from Phase 0, or null]
+  > diff_highlights:    [key filenames/symbols from the Phase 5 diff summaries, optional]"
+
+Handle the result:
+
+- **`status: EMPTY`** → set `counterpart_references = []`; print the `notes` line and proceed to Phase 5.7 unchanged.
+- **`status: ERROR`** → log the reason, set `counterpart_references = []`, proceed (never block).
+- **`status: OK`** → present the candidates and confirm (**always ask**; pre-select the `match_confidence: high` rows):
+  ```
+  "Found <N> counterpart-space page(s) to ground on:
+   | # | Page | Space | Confidence | Already in <target> render? | Why |
+   ...
+   How should I use these?"
+  choices: ["Ground on the recommended (high-confidence) set (Recommended)", "Pick a subset (you'll choose)", "Provide a --counterpart ref instead (you'll be prompted)", "Skip grounding", "Other… (describe)"]
+  ```
+  - **recommended set** → keep the `high` rows.
+  - **subset** → user picks rows.
+  - **provide a ref** → take a free-text Jira key / PR URL, re-invoke `counterpart-finder` with `counterpart_ref` set, then confirm again.
+  - **skip** → `counterpart_references = []`.
+
+**Shared-page signal.** For any kept reference with `is_shared_into_target: true`, tell the user the target space may **already be covered** by that page (its render is pulled in via `cross_space_override`) — the work may be a small `{{#if project='<target>'}}` delta, not a new page. Carry this into Phase 5.7 (feeds the planner's write-strategy recommendation) and Phase 5.9.
+
+Record the confirmed `counterpart_references[]`. It threads into Phase 5.7 (`doc-planner`) and Phase 6.3 (`doc-writer`); it never alters the Phase 5.6 image set.
+
+---
+
 ## Phase 5.7 — Plan the documentation
 
 Invoke `doc-planner`:
@@ -446,7 +505,8 @@ Invoke `doc-planner`:
   > code_repos:           [the Phase-4 resolved {slug, path} map; [] if none resolved]
   > specs_dir:            [resolved <specs_dir> from Phase 0, or null]
   > profile:              [the docs-profile loaded in Phase 0 — drives space routing + the multi-space write strategy]
-  > target_spaces:        [the resolved target_spaces from Phase 4.5: [saas] | [managed] | [saas, managed]]"
+  > target_spaces:        [the resolved target_spaces from Phase 4.5: [saas] | [managed] | [saas, managed]]
+  > counterpart_references: [the confirmed counterpart_references from Phase 5.6.5; [] when none]"
 
 Handle the `status` and `gaps`:
 
@@ -583,7 +643,7 @@ No external CLI calls; all git operations are local.
 
 The writing is delegated to the **`doc-writer`** subagent (pinned to the §2 Opus reasoning chain — see `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/model-routing.md` §9.2). The orchestrator prepares a structured handoff and dispatches; it does not write pages itself.
 
-1. **Write the handoff file.** Create a temp file (`mktemp`, e.g. `$(mktemp -t dw-<JIRA_KEY>-XXXX.yml)` — never the vault, never the docs repo) containing the `doc-writer` input contract: `jira_reader_handoff`, `diff_summaries`, `write_targets`, `doc_planner_checklist` (+ gap dispositions), `repo_authoring_guidance` (the planner's extracted repo-specific rules), `discrepancy_decisions` (Phase 5.8), `write_strategies` (Phase 5.9), `cdn_handoff_decision` + `cdn_urls` + `screenshot_staging_dir` + `screenshots` (Phase 6.1), `target_spaces`, `profile`, `docs_repo_path`, and `bug_report_destination`. Record its absolute path.
+1. **Write the handoff file.** Create a temp file (`mktemp`, e.g. `$(mktemp -t dw-<JIRA_KEY>-XXXX.yml)` — never the vault, never the docs repo) containing the `doc-writer` input contract: `jira_reader_handoff`, `diff_summaries`, `write_targets`, `doc_planner_checklist` (+ gap dispositions), `repo_authoring_guidance` (the planner's extracted repo-specific rules), `discrepancy_decisions` (Phase 5.8), `write_strategies` (Phase 5.9), `cdn_handoff_decision` + `cdn_urls` + `screenshot_staging_dir` + `screenshots` (Phase 6.1), `target_spaces`, `profile`, `docs_repo_path`, `counterpart_references` (Phase 5.6.5), and `bug_report_destination`. Record its absolute path.
 
 2. **Dispatch the writer:**
 
@@ -716,7 +776,9 @@ Invoke `doc-reviewer` (Opus — pinned by its own frontmatter; recorded as `revi
   > doc-planner checklist:  [the full YAML from Phase 5.7]
   > style-check report: [the violations output from Phase 6.4 — from docs-style-checker or dt-style-checker (fallback), or 'status: NOT_CONFIGURED' if neither ran]
   > render_verification: [the Phase 6.5 summary — build result; smoke-check per space (passed / skipped with reason); cross-space invariant check result]
-  > code_repos:         [the Phase-4 resolved {slug, path} map; [] if none resolved]"
+  > code_repos:         [the Phase-4 resolved {slug, path} map; [] if none resolved]
+  > counterpart_references: [the confirmed counterpart_references from Phase 5.6.5; [] when none — supplies the screenshots_seen provenance and the grounded counterpart space for the 'Cross-space grounding integrity' dimension]
+  > target_spaces:      [the resolved target_spaces from Phase 4.5]"
 
 Act on the verdict:
 
@@ -877,7 +939,7 @@ SIGNIFICANT — Jira-driven feature documentation has large blast radius if wron
 ### Model Routing
 - Session / writer model (current_model): [model] — [if it ran degraded: "Sonnet; user proceeded past the Phase 1.5 advisory" | "Sonnet; no Opus available" | "on §2 chain — no degradation"]
 - doc-planner synthesis (planning_model): [model]
-- Detection steps — jira-reader, diff-summarizer, doc-location-finder, docs-style-checker, doc-fixer, maintenance (detection_model): [model]
+- Detection steps — jira-reader, diff-summarizer, doc-location-finder, counterpart-finder, docs-style-checker, doc-fixer, maintenance (detection_model): [model]
 - doc-reviewer (review_model): [model]
 - Opus available: [yes | no]
 
@@ -994,7 +1056,7 @@ repo or the current working directory.
 - ALWAYS escalate missing repos before proceeding — never silent skip
 - ALWAYS invoke `docs-style-checker` (Phase 6.4) before `doc-reviewer` (Phase 7)
 - ALWAYS invoke `doc-reviewer` before Phase 8 maintenance
-- ALWAYS resolve the `model_routing` block at Phase 1.5 and pin each subagent dispatch to its §9 chain via `model:` — `doc-planner` to the §2 Opus chain, the mechanical steps (`jira-reader`, `diff-summarizer`, `doc-location-finder`, `docs-style-checker`, `doc-fixer`, maintenance) to the §2.1 detection chain; `doc-reviewer` keeps its frontmatter Opus pin (no override); the inline writer + gates run on `current_model` (advisory only)
+- ALWAYS resolve the `model_routing` block at Phase 1.5 and pin each subagent dispatch to its §9 chain via `model:` — `doc-planner` to the §2 Opus chain, the mechanical steps (`jira-reader`, `diff-summarizer`, `doc-location-finder`, `counterpart-finder`, `docs-style-checker`, `doc-fixer`, maintenance) to the §2.1 detection chain; `doc-reviewer` keeps its frontmatter Opus pin (no override); the inline writer + gates run on `current_model` (advisory only)
 - ALWAYS cap review/fix cycles: 1 fix + 1 re-review max
 - ALWAYS pass `Change type: docs` in the Phase 8 change summary block
 - ALWAYS pass `Command run: document:` in the Phase 8 Agent 4 session handoff

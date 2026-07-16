@@ -38,7 +38,7 @@ and offers the next phase.
 | `design:` | design | Write an engineering design from a specification. Reviewed by `design-reviewer`. |
 | `epics:` | epics | Draft child Epic definitions for a VI (Jira-driven). Scans repos via `code-scanner`; reviewed by `epic-reviewer` (Opus). |
 | `implement:` | implement | Implement a feature or fix. Classifies complexity → risk-weighted plan (Opus critique for complex tasks) → branch → test baseline → implement → `test-writer` → Opus code-review (SIGNIFICANT/HIGH-RISK) → verify no regressions → post-impl maintenance. |
-| `document:` | document | Dual-mode documentation. **Doc-edit mode** for direct Markdown/wiki/vault edits; **Jira mode** reads Jira exports + merged PRs, runs parallel `diff-summarizer`s, plans via `doc-planner`/`doc-location-finder`, writes with mandatory citations, style-checks, and gates on `doc-reviewer`. |
+| `document:` | document | Dual-mode documentation. **Doc-edit mode** for direct Markdown/wiki/vault edits; **Jira mode** reads Jira exports + merged PRs, runs parallel `diff-summarizer`s, plans via `doc-planner`/`doc-location-finder`, writes with mandatory citations, style-checks, and gates on `doc-reviewer`. On a space-constrained run, `--counterpart <JiraID|PR-url>` (or auto-discovery) grounds the doc on the other space's existing docs — read-only, never copied, never an image source. |
 | `release-notes:` | release-notes | Generate release notes for a VI in dynatrace-docs block format. Output to markdown/stdout — **never** written into the docs repo (Jira automation owns that path). |
 | `ready:` | ready | Readiness gate: verify a VI/feature is ready to ship. Reviewed by `readiness-reviewer`. |
 
@@ -62,6 +62,8 @@ and offers the next phase.
 | `prompt-grill-me:` | prompt-grill-me | Adversarially interrogate a prompt/plan to surface gaps. |
 
 **Which docs skill?** `document:` doc-edit mode is for one-shot manual doc edits (no Jira, no branch/commit). `document:` Jira mode is the Jira-driven feature-documentation workflow end to end. `docs-profile:` is a one-time profiler that generates a repo's `.dev-workflows/docs-profile.yml` (consumed by `document:` Jira mode).
+
+**Counterpart-space grounding (`document: <VI> saas|managed`).** When you document one space, someone may already have written the *other* space's docs for the same feature. `document:` discovers that counterpart page (in-tree keyword search + `git log --grep`, or an explicit `--counterpart <JiraID|PR-url>` for an unmerged PR) and hands it to the writer as **read-only grounding** — concepts, terminology, and structure to consult, never text to copy and never screenshots to reuse (Managed and SaaS UIs differ; target images still come from `$VAULT_PATH`). If the counterpart page is already pulled into your target's render, the run tells you the space may already be covered.
 
 ## Workflow overview
 
@@ -190,13 +192,13 @@ window and inherit the orchestrator's model **unless the caller passes an explic
 the agent file itself (unlike the Claude Code edition, where the nine strong-tier
 reviewers/planners are pinned in frontmatter). The caller is responsible for
 passing the strong-tier model for the nine reviewer/planner agents below. There
-are **30** sub-agents:
+are **31** sub-agents:
 
 | Agent | Model | Description |
 |-------|-------|--------------|
 | `risk-planner` | Strong tier, caller-pinned | Risk-weighted planner for SIGNIFICANT / HIGH-RISK tasks. Returns a structured plan with an explicit risks section. Refuses SIMPLE / MODERATE and returns a re-classification notice instead. |
 | `code-review` | Strong tier, caller-pinned | Post-implementation reviewer — 8 dimensions (correctness, security, architecture, edge cases, migration, dependencies, test adequacy, rollback). Verdict: PASS / PASS WITH RECOMMENDATIONS / BLOCK. BLOCK gates the test run. |
-| `doc-reviewer` | Strong tier, caller-pinned | Product-documentation reviewer for `document:` — checks factual correctness, completeness vs plan, audience fit, structural integrity, frontmatter, screenshots, snippets, actionability, source traceability, and style-check follow-through. |
+| `doc-reviewer` | Strong tier, caller-pinned | Product-documentation reviewer for `document:` — checks factual correctness, completeness vs plan, audience fit, structural integrity, frontmatter, screenshots, snippets, actionability, source traceability, cross-space grounding integrity, and style-check follow-through. |
 | `epic-reviewer` | Strong tier, caller-pinned | Epic-draft reviewer for `epics:` — goal clarity, testable acceptance criteria, scope boundaries, dependencies, non-duplication vs sibling Epics (BLOCKER), and reference-path evidence (when `code-scanner` output is provided). |
 | `spec-reviewer` | Strong tier, caller-pinned | Specification reviewer for `specify:` — checks problem/scope clarity, user-story and acceptance-criteria testability, test-case coverage, open-question resolution (BLOCKER on unresolved items that could be resolved live), and adherence to the org-standard `specification.md` format. |
 | `design-reviewer` | Strong tier, caller-pinned | Engineering-design reviewer for `design:` — validates `design.md` against the design-format authority and traceability to its `specification.md` (every in-scope requirement covered; BLOCKER on a gap), plus interface concreteness, seam/test-strategy soundness, and risk coverage. Treats any unresolved `design.md` open question as a BLOCKER. |
@@ -215,6 +217,7 @@ are **30** sub-agents:
 | `doc-planner` | Caller-assigned | Synthesises Jira data + per-repo diff summaries + confirmed write targets into a documentation checklist the writer follows and `doc-reviewer` checks against. Detects the repo's image policy (local / CDN-upload / ambiguous). |
 | `doc-location-finder` | Caller-assigned | Finds the write target(s) in a docs repo — extend-existing, new-page-in-existing-section, or new-section — with confidence scoring. Never writes content. |
 | `doc-writer` | Caller-assigned | Writes product documentation for `document:` from a structured handoff file — applies the `doc-planner` checklist, approved per-page write strategies, discrepancy decisions, snippets, screenshots, frontmatter, and internal links. Write-only; never runs git. |
+| `counterpart-finder` | Caller-assigned | For a space-constrained `document:` run, finds the OTHER space's existing docs for the feature (in-tree keyword search + `git log --grep`, or an explicit `--counterpart` Jira/PR ref via the diff-summarizer resolver) and returns read-only grounding. Never writes; never an image source. |
 | `jira-reader` | Caller-assigned | Reads the pre-exported Jira markdown hierarchy (VI, Epics, Stories, Sub-tasks, Research, RFA) from `$VAULT_PATH/jira-products/<KEY>/`. Parses PR URLs and classifies hosts. Read-only. Used by `document:`, `epics:`, `release-notes:`, and `implement:` (multi-source input). |
 | `idea-reader` | Caller-assigned | Read-only ingester for `idea:` — auto-detects the source type (inline prompt, markdown file with followed wikilinks/images, community post, or exported RFE Jira ticket) and returns a provenance-tagged normalization. Never writes files. |
 | `release-notes-writer` | Caller-assigned | Renders the dynatrace-docs authored release-notes body for a Jira VI or ticket: a `{{#context}}` label, `### title`, and customer-facing prose. Emits no Jira IDs, no PR links, and no `{{#internal-note}}` block. Does not write files; returns the draft to the caller. |
