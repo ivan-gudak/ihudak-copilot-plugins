@@ -180,7 +180,7 @@ Key invariants for `document:` doc-edit mode:
 
 Key invariants for `document:` jira mode and `epics:`:
 - Mode dispatch is by trigger: `document:` (feature docs) vs `epics:` (epic writing)
-- **Zero external API calls** — PR URLs from Jira exports are identifiers only; no `gh`, no Bitbucket REST API, no HTTPS fetch to Bitbucket; all resolution is pure local `git` on clones under `$REPOS_PATH` (default `/workspace`; colon-separated list supported via `REPOS_PATH=/a:/b:/c`)
+- **Zero direct API calls** — PR URLs from Jira exports are identifiers only; the agent never calls the GitHub or Bitbucket REST API **directly over HTTPS**. GitHub resolution may use the `gh` CLI (which wraps the API — allowed); Bitbucket has no `gh` and is pure local `git`; all resolution runs on clones under `$REPOS_PATH` (default `/workspace`; colon-separated list supported via `REPOS_PATH=/a:/b:/c`)
 - `jira-reader` is strictly read-only — never modifies vault files
 - Parallel sub-agent invocation: all diff-summarizers (`document:` jira mode) or code-scanners (`epics:`) are launched in a **single response** (one `task()` per repo)
 - Branch setup happens **before** writing output files — never after
