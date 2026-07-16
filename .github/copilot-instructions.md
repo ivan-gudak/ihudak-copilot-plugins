@@ -131,7 +131,7 @@ Implementation & maintenance:
 implement:       → implement → [risk-planner@strong plan critique] → [code-review@strong] → review-fixer → test-writer → tests → impl-maintenance
 document:        → document (dual-mode)
                     ├─ doc-edit mode → writing → [docs-style-checker] → [doc-fixer] → [doc-reviewer] → [doc-fixer] → impl-maintenance
-                    └─ jira mode → jira-reader → [diff-summarizer×N (parallel)] → [doc-location-finder] → [doc-planner] → writing → [docs-style-checker → dt-style-checker fallback] → [doc-fixer] → [doc-reviewer] → [doc-fixer] → impl-maintenance
+                    └─ jira mode → jira-reader → [diff-summarizer×N (parallel)] → [doc-location-finder] → [counterpart-finder (space-constrained runs)] → [doc-planner] → writing → [docs-style-checker → dt-style-checker fallback] → [doc-fixer] → [doc-reviewer] → [doc-fixer] → impl-maintenance
 vuln:            → vuln → vuln-research → vuln-fixer → [code-review@strong] → review-fixer → tests → impl-maintenance
 upgrade:         → upgrade → upgrade-planner → upgrade-executor → [code-review@strong] → review-fixer → tests → impl-maintenance
 docs-profile:    → docs-profile → (writes .dev-workflows/docs-profile.yml as reviewable PR; consumed by document: jira mode)
@@ -144,6 +144,7 @@ Shared sub-agents:
                     └── doc-reviewer      (used by document: doc-edit Phase 3.5, and jira mode Phase 7)
                     └── doc-fixer         (used by document: Phase 3.5, jira mode Phases 6.7/7, epics:)
                     └── doc-location-finder (used by document: jira mode Phase 5.6)
+                    └── counterpart-finder (used by document: jira mode Phase 5.6.5, space-constrained runs)
                     └── doc-planner       (used by document: jira mode Phase 5.7)
                     └── docs-style-checker (used by document: Phase 6.7)
                     └── dt-style-checker  (from dt-style-guide plugin; fallback for docs-style-checker, primary for epics)
@@ -186,6 +187,7 @@ Key invariants for `document:` jira mode and `epics:`:
 - Branch policy: walk up cwd for `.obsidian/` → `obsidian` (never branch); else `git rev-parse` → `git_repo` (branch opt-in) or `plain_dir` (never branch). User can override at plan approval
 - `doc-location-finder` (`document:` jira mode only) identifies write targets before writing begins
 - `doc-planner` (`document:` jira mode only) synthesises Jira + diffs into a documentation checklist
+- Counterpart-space grounding (`counterpart-finder`, Phase 5.6.5) runs only on space-constrained runs; it is **read-only** — never copies counterpart-space-specific detail or screenshots into the target doc; `--counterpart <JiraID|PR-url>` reaches an unmerged counterpart PR via the existing local-git resolver (zero new external API); nothing found ⇒ the run behaves exactly as today
 - `docs-style-checker` + `doc-fixer` lint prose after writing, before review gate; if no repo linter detected, falls back to `dt-style-checker` (from `dt-style-guide` plugin) when installed
 - `epics:`: `dt-style-checker` is the primary style checker (vault content has no repo linter); gracefully skipped if `dt-style-guide` not installed
 - Review gate: `doc-reviewer` (`document:`) or `epic-reviewer@strong` (`epics:`); `doc-fixer` resolves BLOCKERs; cap 1 fix cycle + 1 re-review
