@@ -32,7 +32,8 @@ and offers the next phase.
 | Trigger | Skill | Description |
 |---------|-------|-------------|
 | `idea:` | idea | Capture a raw idea and shape it into a structured problem statement. Pre-VI, keyless. |
-| `create-vi:` | create-vi | Draft a Value Increment (VI) from an idea or problem statement. Reviewed by `vi-reviewer`. |
+| `create-vi:` | create-vi | Draft a Value Increment (VI) from an idea or problem statement (or seed a new one from a sibling VI with `--from-vi`). Reviewed by `vi-reviewer`. |
+| `update-vi:` | update-vi | Refresh/re-do an existing Value Increment — Jira-import-first (source of truth), canonical + archived revisions. Reviewed by `vi-reviewer`. |
 | `create-ard:` | create-ard | Draft an Architecture Decision Record for a VI. Reviewed by `ard-reviewer`; resolves open decisions. |
 | `specify:` | specify | Write an engineering specification (Jira-driven). Reviewed by `spec-reviewer`. |
 | `design:` | design | Write an engineering design from a specification. Reviewed by `design-reviewer`. |
@@ -106,7 +107,7 @@ flowchart TD
 
 | Role | Starts with | Consumes | Produces → where it lands |
 |------|-------------|----------|---------------------------|
-| **PM** | `idea:`, `create-vi: <KEY>`, `release-notes: <VI>` | a prompt / community post / RFE; then a refined `idea.md` + a JIRA-KEY | `<KEY>_ValueIncrement.md` in `$SPECS_PATH/specifications/<KEY>-<slug>/` (idea.md relocated in); an early release-notes draft in the vault; paste-to-Jira → re-import to `$VAULT_PATH/jira-products/<KEY>/` |
+| **PM** | `idea:`, `create-vi: <KEY>`, `update-vi: <KEY>`, `release-notes: <VI>` | a prompt / community post / RFE; then a refined `idea.md` + a JIRA-KEY | `<KEY>_<slug>.md` in `$SPECS_PATH/specifications/<KEY>-<slug>/` (idea.md relocated in); an early release-notes draft in the vault; paste-to-Jira → re-import to `$VAULT_PATH/jira-products/<KEY>/` |
 | **PA** *(optional)* | `create-ard: <VI> [<Epic>]` | the VI (and Epic) | `<VI>_ARD.md` / `<EPIC>-<area>_ARD.md` in the same specs feature folder |
 | **PE** | `epics: <VI>`, `specify: <VI> [<Epic>]` | the VI (+ ARD, existing Epics) | Epic drafts in `$VAULT_PATH/jira-drafts/<VI-KEY>/`; `specification.md` on the specs-repo main (branch + PR) |
 | **Dev** | `design: <VI> <Epic>`, `implement: <VI> <Epic>`, `document: <VI>`, `release-notes: <VI>` | the `specification.md` (+ ARD); `design.md`; the code repos | `design.md` on the specs-repo main; code + PR in `$REPOS_PATH`; product docs in the docs repo; the final release-notes draft in the vault |
@@ -333,7 +334,8 @@ These skills run fine on a bare host, but depend on a few external tools for the
 - `specification-format.md` — the org-standard `specification.md` format authored by `specify:`
 - `design-format.md` — the engineering `design.md` format authored by `design:`
 - `ard-resolution.md` — most-specific-first ARD resolution (per-area → Epic-level → inherited VI-level) consumed by `design:`, `implement:`, `specify:`, `epics:`
-- `grilling-technique.md` — the embedded bounded one-question-at-a-time grilling SSOT (used by `idea:`, `create-vi:`, `specify:`, `design:`, `prompt-grill-me:`)
+- `vi-source-resolution.md` — Jira-import-first resolution of an existing VI (3-day freshness), consumed by `update-vi:` and `create-vi: --from-vi`
+- `grilling-technique.md` — the embedded bounded one-question-at-a-time grilling SSOT (used by `idea:`, `create-vi:`, `update-vi:`, `specify:`, `design:`, `prompt-grill-me:`)
 - `next-phase-offer.md` — the role-aware next-step routing graph (PM → PA → PE → Team) emitted at the end of every lifecycle skill
 - `session-hygiene.md` — the prepare-checkpoint + role-aware `/compact` suggestion (guidance-only)
 - `context-management.md` — mid-run context-window guidance

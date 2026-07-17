@@ -120,6 +120,7 @@ All orchestrators that dispatch sub-agents (`impl`, `impl-docs`, `impl-jira`, `f
 Lifecycle (each phase writes a reviewable artifact, offers the next):
 idea:            → idea → idea-reader → (problem statement)
 create-vi:       → create-vi → [vi-reviewer@strong] → (Value Increment)
+update-vi:       → update-vi (jira-import-first) → [vi-reviewer@strong] → (refreshed Value Increment)
 create-ard:      → create-ard → [ard-reviewer@strong] → (ARD, resolves decisions)
 specify:         → specify (jira-driven) → [spec-reviewer@strong] → (engineering spec)
 design:          → design → [design-reviewer@strong] → (engineering design)
