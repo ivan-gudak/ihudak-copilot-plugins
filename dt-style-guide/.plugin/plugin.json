@@ -1,7 +1,7 @@
 {
   "name": "dt-style-guide",
   "description": "Dynatrace corporate style guide — vendored terminology, trademarks, voice/tone, grammar, and formatting rules, dispatched via dt-style-checker and dt-doc-fixer agents, plus a dt-style-rules skill and three orchestrator commands (dt-style-refresh, dt-review-pr, dt-review-docs). Acts as a fallback for dev-workflows when no repo-configured prose linter (Vale) is available.",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "author": {
     "name": "Ivan Gudak",
     "url": "https://github.com/ihudak"
