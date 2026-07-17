@@ -41,7 +41,7 @@ Refuse to run without `depth`, `jira_key`, and at least one of
 
 2. **Depth-scoped file reads.**
 
-   - **`depth: full`** — for every linked item (including the root VI itself), read `<EXPORT_ROOT>/<LINKED_KEY>/<LINKED_KEY>.md`. For the VI itself, `<LINKED_KEY> == <jira_key>`, so the path resolves to `<EXPORT_ROOT>/<jira_key>/<jira_key>.md` (a nested same-named subdirectory — verified against real exports). Parse YAML frontmatter, extract the Description body, and collect PR URLs from the `## Pull Requests` section.
+   - **`depth: full`** — for every linked item (including the root VI itself), read `<EXPORT_ROOT>/<LINKED_KEY>/<LINKED_KEY>.md`. For the VI itself, `<LINKED_KEY> == <jira_key>`, so the path resolves to `<EXPORT_ROOT>/<jira_key>/<jira_key>.md` (a nested same-named subdirectory — verified against real exports). Parse YAML frontmatter, extract the Description body, and collect PR URLs from the `## Pull Requests` section. Also surface `change_type` and `release_notes_category` verbatim from the VI frontmatter into `value_increment` (null when a key is absent) — additive read-only fields; no other consumer is affected when they are null.
    - **`depth: vi-plus-epics`** — read the VI's own file at `<EXPORT_ROOT>/<jira_key>/<jira_key>.md` plus every Epic `.md` directly linked to the VI (filter the linked-items table to `type == Epic`). Skip Stories, Sub-tasks, Research, Request for Assistance. This gives Epic-writing workflows enough context to extract meaningful themes for `code-scanner` without reading the entire hierarchy.
 
    For each Epic read at `vi-plus-epics`, also parse its YAML frontmatter and body and emit three additive fields on its `linked_items[]` entry (Epic-only, this depth only — absent elsewhere, so other consumers are unaffected):
@@ -122,6 +122,8 @@ value_increment:
   summary: <text>
   status:  <text>
   goal:    <2–3 sentence extraction from Description>
+  change_type:            <verbatim from VI frontmatter; null when absent>
+  release_notes_category: <verbatim from VI frontmatter; null when absent>
 requirements_source: native | derived
 requirements:
   - id:   <US-N | AC-N | SM-N | FR-N | UC-N | R1..>   # native VI id, else synthetic

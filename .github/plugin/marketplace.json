@@ -13,15 +13,15 @@
     {
       "name": "dev-workflows",
       "source": "dev-workflows",
-      "description": "Full product-development lifecycle for GitHub Copilot CLI. Twenty user-facing skills covering the idea → create-vi → create-ard → specify → design → epics → implement → document → release-notes → ready flow, plus vuln (CVE remediation), upgrade (dependency upgrades), update-vi (VI refresh), api-guideline-reviewer, guideline-reviewer, docs-profile, feedback, prompt, prompt-brainstorm, and prompt-grill-me. Flat keyword triggers (implement:, document:, epics:, specify:, design:, release-notes:, vuln:, upgrade:, idea:, create-vi:, update-vi:, create-ard:, ready:, feedback:, prompt:). document: grounds space-constrained runs on the counterpart space's existing docs as read-only reference. Thirty-one dispatched sub-agents for planning, code review, doc review, testing, style-checking, and Jira/PR analysis. Strong-tier model routing (Opus 4.8/4.7/4.6 or GPT-5.5). Notification, context-injection, and dynatrace-docs frontmatter reminder hooks.",
-      "version": "2.3.0",
+      "description": "Full product-development lifecycle for GitHub Copilot CLI. Twenty user-facing skills covering the idea → create-vi → create-ard → specify → design → epics → implement → document → release-notes → ready flow, plus vuln (CVE remediation), upgrade (dependency upgrades), update-vi (VI refresh), api-guideline-reviewer, guideline-reviewer, docs-profile, feedback, prompt, prompt-brainstorm, and prompt-grill-me. Flat keyword triggers (implement:, document:, epics:, specify:, design:, release-notes:, vuln:, upgrade:, idea:, create-vi:, update-vi:, create-ard:, ready:, feedback:, prompt:). document: grounds space-constrained runs on the counterpart space's existing docs as read-only reference. release-notes: classifies a Change Type (Breaking change / New technology support / Bug fix / not applicable), shapes the Summary per type, and flags deprecations. Thirty-one dispatched sub-agents for planning, code review, doc review, testing, style-checking, and Jira/PR analysis. Strong-tier model routing (Opus 4.8/4.7/4.6 or GPT-5.5). Notification, context-injection, and dynatrace-docs frontmatter reminder hooks.",
+      "version": "2.4.0",
       "homepage": "https://github.com/ihudak/ihudak-copilot-plugins/tree/main/dev-workflows"
     },
     {
       "name": "dt-style-guide",
       "source": "dt-style-guide",
       "description": "Dynatrace corporate style guide checker and writing-aid plugin. Enforces terminology, trademarks, voice/tone, grammar, formatting, and inclusive-language rules from styleguide.dynatrace.com. Includes dt-review-pr (review PR doc changes), dt-review-docs (review files/directories with optional --fix), dt-style-refresh (update vendored rules), a dt-style-rules skill, two dispatched sub-agents (dt-style-checker, dt-doc-fixer), and eight vendored reference docs. Acts as a fallback for dev-workflows when no repo-configured prose linter is available.",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "homepage": "https://github.com/ihudak/ihudak-copilot-plugins/tree/main/dt-style-guide"
     },
     {

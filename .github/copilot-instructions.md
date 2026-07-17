@@ -114,6 +114,8 @@ When adding a new skill that references shared content, always reference via the
 
 All orchestrators that dispatch sub-agents (`impl`, `impl-docs`, `impl-jira`, `fix-vuln`, `upgrade`) must load and follow `model-routing.md` at the start of every invocation. Standalone review orchestrators (`api-guideline-reviewer`, `guideline-reviewer`) are exempt — they do not classify complexity or route models. Sub-agents receive the `model_routing` block in their prompt; they do not re-read the file.
 
+`skills/_shared/release-note-types.md` is the **single authority** for the release-note Change Type taxonomy (`Breaking change` / `New technology support` / `Bug fix` / `not applicable`), the classification order, the per-type Summary shaping rules, and the deprecation-note rule (end-of-life date required, end-of-support optional). It is consulted by `release-notes-writer`; the `release-notes:` skill applies its decisions through the writer's gaps.
+
 ## `dev-workflows` plugin — skill relationships
 
 ```
@@ -125,7 +127,7 @@ create-ard:      → create-ard → [ard-reviewer@strong] → (ARD, resolves dec
 specify:         → specify (jira-driven) → [spec-reviewer@strong] → (engineering spec)
 design:          → design → [design-reviewer@strong] → (engineering design)
 epics:           → epics (jira-driven) → jira-reader → [code-scanner×N (parallel, optional)] → writing → [dt-style-checker] → [doc-fixer] → [epic-reviewer@strong] → [doc-fixer] → impl-maintenance
-release-notes:   → release-notes → release-notes-writer → (dynatrace-docs block draft; NEVER written to docs repo)
+release-notes:   → release-notes → release-notes-writer: classify Change Type + shape per type + detect deprecation → (dynatrace-docs block draft: Change type: line + Summary; NEVER written to docs repo)
 ready:           → ready → [readiness-reviewer@strong] → impl-maintenance
 
 Implementation & maintenance:

@@ -4,6 +4,18 @@ All notable changes to the **dev-workflows** plugin are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow semver at the plugin level.
 
+## [2.4.0] — 2026-07-17
+
+### Added
+
+- **Release-note Change Type classification (`release-notes:`).** `release-notes-writer` now classifies every draft into one of four Change Types — **Breaking change** / **New technology support** / **Bug fix** / **not applicable** — via a new `_shared/release-note-types.md` source-of-truth reference (taxonomy, classification order, per-type Summary shaping, and the deprecation-note rule). The draft leads with a `Change type:` line above a type-aware Summary (breaking → benefit-led + action plan; bug fix → past-tense, no hedging, no internal terms; new-tech → benefit-led editorial shaping); the label never appears inside the Summary body, and no title or Summary prose names the release version.
+- **Deprecation notes.** When a change deprecates something, the Summary carries a deprecation note — end-of-life date (**required**) + end-of-support date (optional). Dates are never invented: a missing required date becomes a `deprecation_eol` gap the `release-notes:` skill asks about, with a `<!-- TODO: end-of-life date -->` placeholder in the draft.
+- **Change Type sourcing ladder + VI capture.** `change_type` is sourced, not just inferred — `change_type_hint` → imported VI frontmatter → authored specs-draft VI → infer (first non-null wins; the imported value wins a divergence, recorded non-blocking). `jira-reader` now surfaces `change_type` and `release_notes_category` verbatim from the VI frontmatter into `value_increment` (additive, null when absent); `release_notes_category` is surfaced only, never inferred, and never the `{{#context}}` label.
+
+### Changed
+
+- `release-notes:` Phase report now shows the resolved Change type + Deprecation; the skill resolves a low-confidence `change_type` gap and a `deprecation_eol` gap with the user before writing the draft.
+
 ## [2.3.0] — 2026-07-17
 
 ### Added
