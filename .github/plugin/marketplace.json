@@ -14,7 +14,7 @@
       "name": "dev-workflows",
       "source": "dev-workflows",
       "description": "Full product-development lifecycle for GitHub Copilot CLI. Twenty user-facing skills covering the idea → create-vi → create-ard → specify → design → epics → implement → document → release-notes → ready flow, plus vuln (CVE remediation), upgrade (dependency upgrades), update-vi (VI refresh), api-guideline-reviewer, guideline-reviewer, docs-profile, feedback, prompt, prompt-brainstorm, and prompt-grill-me. Flat keyword triggers (implement:, document:, epics:, specify:, design:, release-notes:, vuln:, upgrade:, idea:, create-vi:, update-vi:, create-ard:, ready:, feedback:, prompt:). document: grounds space-constrained runs on the counterpart space's existing docs as read-only reference. release-notes: classifies a Change Type (Breaking change / New technology support / Bug fix / not applicable), shapes the Summary per type, and flags deprecations. Thirty-one dispatched sub-agents for planning, code review, doc review, testing, style-checking, and Jira/PR analysis. Strong-tier model routing (Opus 4.8/4.7/4.6 or GPT-5.5). Notification, context-injection, and dynatrace-docs frontmatter reminder hooks.",
-      "version": "2.4.0",
+      "version": "2.5.0",
       "homepage": "https://github.com/ihudak/ihudak-copilot-plugins/tree/main/dev-workflows"
     },
     {

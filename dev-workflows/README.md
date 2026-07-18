@@ -32,7 +32,7 @@ and offers the next phase.
 | Trigger | Skill | Description |
 |---------|-------|-------------|
 | `idea:` | idea | Capture a raw idea and shape it into a structured problem statement. Pre-VI, keyless. |
-| `create-vi:` | create-vi | Draft a Value Increment (VI) from an idea or problem statement (or seed a new one from a sibling VI with `--from-vi`). Reviewed by `vi-reviewer`. |
+| `create-vi:` | create-vi | Draft a Value Increment (VI) from an idea or problem statement (or seed a new one from a sibling VI with `--from-vi`). Captures optional `change_type` + `release_notes_category` for release-notes-relevant VIs (feeds the `release-notes:` sourcing ladder). Reviewed by `vi-reviewer`. |
 | `update-vi:` | update-vi | Refresh/re-do an existing Value Increment — Jira-import-first (source of truth), canonical + archived revisions. Reviewed by `vi-reviewer`. |
 | `create-ard:` | create-ard | Draft an Architecture Decision Record for a VI. Reviewed by `ard-reviewer`; resolves open decisions. |
 | `specify:` | specify | Write an engineering specification (Jira-driven). Reviewed by `spec-reviewer`. |

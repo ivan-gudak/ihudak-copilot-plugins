@@ -4,6 +4,12 @@ All notable changes to the **dev-workflows** plugin are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow semver at the plugin level.
 
+## [2.5.0] — 2026-07-18
+
+### Added
+
+- **`create-vi:` captures the release-note Change Type + category (write-side).** `_shared/vi-format.md` frontmatter gains optional `change_type` (`Breaking change | New technology support | Bug fix | not applicable`) and `release_notes_category` (the Dynatrace Solution), authored-then-mirrored like `release_versions`. The `create-vi:` grill asks for both only when `relevant_for_release_notes: yes`; dates/deprecation stay out of frontmatter (they belong in the release-notes Summary). `vi-reviewer` validates `change_type` — `MAJOR` if outside the four-value enum, `MINOR` (recommended, not required) when `relevant_for_release_notes: yes` but `change_type` is absent; `release_notes_category` is free text. Completes the write-side of the Change Type sourcing ladder from 2.4.0, so a PM-phase `release-notes:` run can read the authored `change_type` from the specs-draft VI.
+
 ## [2.4.0] — 2026-07-17
 
 ### Added
