@@ -104,7 +104,7 @@ Load and follow the model-routing policy at `~/.copilot/installed-plugins/ihudak
    choices: ["Proceed anyway (Recommended)", "Cancel", "Other… (describe)"]
    ```
 
-2. **Plan.** Present: resolved `jira_key`, destination, diff-grounding on/off (+ `$REPOS_PATH` and repos to scan when on), release versions detected, style-check choice. Ask:
+2. **Plan.** Present: resolved `jira_key`, destination, diff-grounding on/off (+ `$REPOS_PATH` and repos to scan when on), docs grounding on/off (+ root when on), release versions detected, style-check choice. Ask:
    ```
    choices: ["Approve & continue (Recommended)", "Revise plan", "Cancel"]
    ```
@@ -148,6 +148,12 @@ Spawn `diff-summarizer` in batches of up to 4 concurrent agents per Agent messag
 
 ---
 
+## Phase 5.5 — Documentation grounding (optional)
+
+Run `resolve-docs-grounding release-notes` per `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/docs-grounding.md`. When `docs_grounding: ON`, `dispatch-docs-grounder` with `feature_summary` = the ticket goal + release themes, `jira_key` = `jira_key`. Carry the digest into Phase 6 with **writer-attach** consumption. When OFF, skip silently. (Independent of diff grounding.)
+
+---
+
 ## Phase 6 — Render the draft
 
 → task(agent_type: "dev-workflows:release-notes-writer"):
@@ -159,7 +165,8 @@ Spawn `diff-summarizer` in batches of up to 4 concurrent agents per Agent messag
   > context_label_hint:  [user hint if any, else null]
   > change_type_hint:    [user-supplied Change Type and/or deprecation signal if any, else null]
   > model_routing:       [the block from Phase 1.5]
-  > code_repos:          [the Phase-4 resolved {slug, path} map when diff grounding is on; omit otherwise]"
+  > code_repos:          [the Phase-4 resolved {slug, path} map when diff grounding is on; omit otherwise]
+  > docs_grounding:      [the Phase 5.5 digest, or omit when OFF/EMPTY]"
 
 If `status: PARTIAL`, surface each `gaps` entry with `recommended_action: "ask user"` and let the user supply the label/prose or accept a `<!-- TODO -->` marker.
 

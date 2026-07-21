@@ -41,6 +41,7 @@ Usage: `create-vi: <JIRA-KEY> [@idea.md] [--from-vi <VI-KEY|path>] [--lean|--hyb
 Use `choices` arrays; the last choice is always `"Other… (describe)"`.
 
 1. **Confirm** the feature folder, the profile, and the resolved `idea.md` (or "none — grill from scratch").
+   - Show the `docs grounding: ON <root> | OFF (<reason>)` line (off switch: --no-docs).
 2. **Existing-VI handling** (only if Phase 0 step 6 found a VI for `<KEY>`, frontmatter `issue_type: ValueIncrement`):
    - **No `--from-vi`** → `create-vi:` is greenfield-only; **redirect**:
      ```
@@ -97,6 +98,12 @@ Optionally ground in the idea's cited sources and any strategy/vision docs the u
 If `--from-vi` was resolved (Phase 0 step 2a), also read the **seed VI** (body + comments) as read-only grounding — structure, personas, scope shape, and metrics to *adapt* (never copy) to the new VI.
 
 If there is no idea (Phase 0 ladder exhausted), grill the VI from scratch.
+
+---
+
+## Phase 2.5 — Documentation grounding (optional)
+
+Run `resolve-docs-grounding create-vi` per `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/docs-grounding.md`. When `docs_grounding: ON`, `dispatch-docs-grounder` with `feature_summary` = the idea's problem/goal + VI themes, `jira_key` = `<KEY>`, and `themes` from the idea. Carry the returned digest into Phase 3 with **grill-rank** consumption. When OFF, skip silently — the VI is authored exactly as today.
 
 ---
 

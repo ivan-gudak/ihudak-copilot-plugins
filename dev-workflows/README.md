@@ -66,6 +66,8 @@ and offers the next phase.
 
 **Counterpart-space grounding (`document: <VI> saas|managed`).** When you document one space, someone may already have written the *other* space's docs for the same feature. `document:` discovers that counterpart page (in-tree keyword search + `git log --grep`, or an explicit `--counterpart <JiraID|PR-url>` for an unmerged PR) and hands it to the writer as **read-only grounding** — concepts, terminology, and structure to consult, never text to copy and never screenshots to reuse (Managed and SaaS UIs differ; target images still come from `$VAULT_PATH`). If the counterpart page is already pulled into your target's render, the run tells you the space may already be covered.
 
+**Documentation grounding (`$DOCS_PATH`).** When `$DOCS_PATH` (default `/workspace/docs`) is set and points at a readable directory containing at least one markdown file, `idea:`, `create-vi:`, `update-vi:`, `create-ard:`, `specify:`, `epics:`, and `release-notes:` ground automatically on the product's existing shipped documentation — via the read-only `docs-grounder` agent (see `_shared/docs-grounding.md`). Disable per-run with `--no-docs`, or point at a different root with `--docs <path>`. Grill commands rank the grounding into their existing gap list (never adding extra questions); writer commands attach the digest to the writer handoff. Every miss is a silent, non-blocking skip — the run behaves exactly as it does without `$DOCS_PATH` set. `document:` does not consume this grounding; it only uses `$DOCS_PATH` as a docs-repo discovery hint.
+
 ## Workflow overview
 
 The lifecycle skills form a role-based pipeline. Each role has a starting trigger and hands a concrete artifact to the next role. `idea: → create-vi:` (PM) opens it; `document:` + `release-notes:` (Dev) close it.
@@ -193,7 +195,7 @@ window and inherit the orchestrator's model **unless the caller passes an explic
 the agent file itself (unlike the Claude Code edition, where the nine strong-tier
 reviewers/planners are pinned in frontmatter). The caller is responsible for
 passing the strong-tier model for the nine reviewer/planner agents below. There
-are **31** sub-agents:
+are **32** sub-agents:
 
 | Agent | Model | Description |
 |-------|-------|--------------|
@@ -220,6 +222,7 @@ are **31** sub-agents:
 | `doc-writer` | Caller-assigned | Writes product documentation for `document:` from a structured handoff file — applies the `doc-planner` checklist, approved per-page write strategies, discrepancy decisions, snippets, screenshots, frontmatter, and internal links. Write-only; never runs git. |
 | `counterpart-finder` | Caller-assigned | For a space-constrained `document:` run, finds the OTHER space's existing docs for the feature (in-tree keyword search + `git log --grep`, or an explicit `--counterpart` Jira/PR ref via the diff-summarizer resolver) and returns read-only grounding. Never writes; never an image source. |
 | `jira-reader` | Caller-assigned | Reads the pre-exported Jira markdown hierarchy (VI, Epics, Stories, Sub-tasks, Research, RFA) from `$VAULT_PATH/jira-products/<KEY>/`. Parses PR URLs and classifies hosts. Read-only. Used by `document:`, `epics:`, `release-notes:`, and `implement:` (multi-source input). |
+| `docs-grounder` | Caller-assigned | Read-only documentation grounding on `$DOCS_PATH` for `idea:`, `create-vi:`, `update-vi:`, `create-ard:`, `specify:`, `epics:`, and `release-notes:` — retrieves via the `qmd` CLI (falls back to keyword-overlap + `git log --grep`) and returns a bounded digest of `docs_references` (positive grounding: same-feature / analogous-precedent / building-block facts) plus `docs_challenges` (reconciliation prompts, incl. `diverges_from_precedent`). Never writes; advisory only. |
 | `idea-reader` | Caller-assigned | Read-only ingester for `idea:` — auto-detects the source type (inline prompt, markdown file with followed wikilinks/images, community post, or exported RFE Jira ticket) and returns a provenance-tagged normalization. Never writes files. |
 | `release-notes-writer` | Caller-assigned | Renders the dynatrace-docs authored release-notes body for a Jira VI or ticket: a `{{#context}}` label, `### title`, and customer-facing prose. Emits no Jira IDs, no PR links, and no `{{#internal-note}}` block. Does not write files; returns the draft to the caller. |
 | `diff-summarizer` | Caller-assigned | Resolves a single repo's PR diffs and returns a doc-focused summary. GitHub uses the `gh` CLI when available; Bitbucket Cloud / Server + GitHub-fallback use local-git strategies. Designed for parallel invocation (caller caps at 4 concurrent). |
@@ -318,6 +321,7 @@ These skills run fine on a bare host, but depend on a few external tools for the
 - **No Bitbucket CLI required or assumed.** Bitbucket Cloud and self-hosted Bitbucket Server URLs are resolved purely from the local clone — `diff-summarizer` never makes Bitbucket HTTPS calls.
 - **`vale`** (optional but recommended) — when the target docs repo has `.vale.ini`, `docs-style-checker` invokes `vale` first. Falls back to the repo's `package.json` lint script, then to `dt-style-checker` from the `dt-style-guide` plugin.
 - **`dt-style-guide` plugin** (optional companion) — `docs-style-checker` falls back to it when no repo-configured linter exists; `epics:` always uses `dt-style-checker` as its primary style gate (vault content has no repo linter). Both plugins are independently installable — without `dt-style-guide`, the fallback is skipped gracefully.
+- **`qmd`** (optional) — enables semantic retrieval for `docs-grounder`'s `$DOCS_PATH` documentation grounding. Without it, `docs-grounder` falls back to keyword-overlap + `git log --grep` matching — host users only; the AI Container installs `qmd` automatically.
 - **Recommended environment: [ihudak/ai-containers](https://github.com/ihudak/ai-containers).** Mounts every repository and the Obsidian vault under `/workspace` (repos at `/workspace/<repo>`, vault at `/workspace/vault`), installs `gh`, and mounts `~/.config/gh` from the host so `gh auth login` on the host is sufficient. Outside the container, set `$REPOS_PATH` yourself and manage `gh` installation.
 - **`$VAULT_PATH` / `$SPECS_PATH` / `$REPOS_PATH`** — see the [repo-root setup guide](../README.md#prerequisites) for the full environment-variable configuration shared across this marketplace's plugins.
 - The Jira hierarchy under `$VAULT_PATH/jira-products/<KEY>/` is produced by the [`jira-workitem-import`](https://github.com/ivan-gudak/jira-workitem-import) tool.
@@ -345,6 +349,7 @@ These skills run fine on a bare host, but depend on a few external tools for the
 - `workflow-states.md` — the readiness rubric + Jira-status → phase mapping consumed by `ready:`
 - `dependencies.md` — recommended companions + the external `jira-workitem-import` importer
 - `source-truth.md` — implementation-vs-description discrepancy-escalation protocol
+- `docs-grounding.md` — `$DOCS_PATH` documentation grounding: the `resolve-docs-grounding` resolution gate (`${DOCS_PATH:-/workspace/docs}`, read-only, silent-skip), the `dispatch-docs-grounder` procedure, and the grill-rank / writer-attach consumption modes (consulted by `idea:`, `create-vi:`, `update-vi:`, `create-ard:`, `specify:`, `epics:`, `release-notes:`)
 - `branch-naming.md` — the branch-prefix resolution chain (`$GIT_USER_INITIALS` → git config → sniff → fallback)
 - `fix-vuln/nvd-api.md`, `fix-vuln/build-systems.md` — NVD API shape and build-system detection for `vuln:`
 - `upgrade/ecosystems.md`, `upgrade/compatibility.md`, `upgrade/lts-sources.md` — ecosystem detection, compatibility constraints, LTS lookups for `upgrade:`

@@ -90,6 +90,8 @@ an absolute `$SPECS_PATH`-rooted directory, so it does not require cwd to be ins
 
 Use `choices` arrays; the last choice in every array MUST be `"Other… (describe)"`.
 
+At plan/approval, show the `docs grounding: ON <root> | OFF (<reason>)` line (off switch: --no-docs).
+
 1. **Feature folder.** Confirm the path resolved in Phase 0:
    ```
    choices: ["Use <feature_folder> (Recommended)", "Use a different path (you'll be prompted)", "Cancel", "Other… (describe)"]
@@ -337,6 +339,10 @@ Handle per-repo status after the batch returns:
   ```
   choices: ["Continue with current local state", "Skip this repo", "Cancel"]
   ```
+
+---
+
+**Documentation grounding (optional).** Run `resolve-docs-grounding specify` per `~/.copilot/installed-plugins/ihudak-copilot-plugins/dev-workflows/skills/_shared/docs-grounding.md`. When `docs_grounding: ON`, `dispatch-docs-grounder` with `feature_summary` = the scoped Epic/VI goal, `jira_key` = the focus key, `themes` = the Phase 2 capability themes. Carry the digest into the Phase 5 grill with **grill-rank** consumption. When OFF, skip silently.
 
 ---
 
